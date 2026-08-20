@@ -21,6 +21,7 @@ forma simulada e recebe um ingresso com QR, e a **portaria** valida esse ingress
 - [Chaves das APIs externas](#chaves-das-apis-externas)
 - [Dados semeados (seed)](#dados-semeados-seed)
 - [Percorrendo o fluxo completo](#percorrendo-o-fluxo-completo)
+- [Autenticação: sessão opaca em Redis](#autenticação-sessão-opaca-em-redis)
 - [Decisões de domínio](#decisões-de-domínio)
 - [API](#api)
 - [Testes](#testes)
@@ -99,12 +100,12 @@ visual — a imagem do filme/show é o que o usuário reconhece, então ela mand
                                                     │
                           ┌─────────────────────────┼─────────────────────┐
                           ▼                         ▼                     ▼
-                 ┌─────────────────┐      ┌──────────────────┐   ┌───────────────┐
-                 │   PostgreSQL    │      │  TMDb (filmes)   │   │ Ticketmaster  │
-                 │  eventos,       │      │                  │   │   (shows)     │
-                 │  reservas,      │      └──────────────────┘   └───────────────┘
-                 │  ingressos      │          via CatalogProvider (cache em memória)
-                 └─────────────────┘
+    ┌─────────────────┐  ┌──────────────┐  ┌──────────────────┐  ┌───────────────┐
+    │   PostgreSQL    │  │    Redis     │  │  TMDb (filmes)   │  │ Ticketmaster  │
+    │  eventos,       │  │  sessões,    │  │                  │  │   (shows)     │
+    │  reservas,      │  │  cache do    │  └──────────────────┘  └───────────────┘
+    │  ingressos      │  │  catálogo    │        via CatalogProvider
+    └─────────────────┘  └──────────────┘
 ```
 
 Camadas no back-end: `api/` (rotas e schemas Pydantic) → `services/` (regras de domínio, onde
@@ -119,10 +120,11 @@ domínio sem servidor no meio.
 | Camada        | Escolha                                                 |
 | ------------- | ------------------------------------------------------- |
 | Front-end     | React 18, TypeScript, Vite, React Router                |
-| Back-end      | Python 3.12, FastAPI, Pydantic v2                        |
+| Back-end      | Python 3.12+, FastAPI, Pydantic v2                       |
 | ORM           | SQLAlchemy 2.0 + Alembic (migrations)                   |
 | Banco         | PostgreSQL 16                                           |
-| Auth          | JWT (HS256), 3 papéis: ORGANIZER, CUSTOMER, GATE         |
+| Sessão        | Redis 7                                                 |
+| Auth          | Sessão opaca em Redis, 3 papéis: ORGANIZER, CUSTOMER, GATE |
 | QR            | `qrcode` (geração), `html5-qrcode` (leitura via câmera)  |
 | Catálogo      | TMDb API + Ticketmaster Discovery API v2                 |
 | Testes        | pytest (back), Vitest (front)                            |
@@ -132,8 +134,8 @@ domínio sem servidor no meio.
 
 ## Como rodar
 
-Pré-requisitos: **Docker + Docker Compose**, ou então **Python 3.12+**, **Node 20+** e um
-**PostgreSQL 16** acessível.
+Pré-requisitos: **Docker + Docker Compose**, ou então **Python 3.12+**, **Node 20+**, um
+**PostgreSQL 16** e um **Redis 7** acessíveis.
 
 ### Opção 1 — Docker Compose (recomendado)
 
@@ -175,7 +177,7 @@ source .venv/bin/activate
 
 pip install -r requirements.txt
 
-cp .env.example .env      # ajuste DATABASE_URL para o seu Postgres
+cp .env.example .env      # ajuste DATABASE_URL e REDIS_URL
 
 alembic upgrade head      # cria o schema
 python -m app.seed        # popula os dados de teste
@@ -200,10 +202,17 @@ npm run dev
 `UNIQUE` parcial e de transação, e eu queria isso resolvido pelo banco em vez de por lock na
 aplicação. SQLite não daria conta do teste de concorrência.
 
-**Subindo só o banco, via Docker:**
+**Subindo só banco e Redis, via Docker:**
 
 ```bash
-docker compose up -d db
+docker compose up -d db redis
+```
+
+Ou, sem Compose:
+
+```bash
+docker run -d --name palco-pg -e POSTGRES_USER=palco -e POSTGRES_PASSWORD=palco   -e POSTGRES_DB=palco -p 5432:5432 postgres:16-alpine
+docker run -d --name palco-redis -p 6379:6379 redis:7-alpine
 ```
 
 **Ou aponte para um Postgres seu** em `backend/.env`:
@@ -257,7 +266,10 @@ sem job de limpeza para devolver estoque.
 | Variável                  | Para quê                                            | Padrão                  |
 | ------------------------- | --------------------------------------------------- | ----------------------- |
 | `DATABASE_URL`            | Conexão com o Postgres                              | —                       |
-| `JWT_SECRET`              | Assinatura dos tokens de sessão                     | —                       |
+| `REDIS_URL`               | Conexão com o Redis (sessões)                       | —                       |
+| `SESSION_TTL_SECONDS`     | Expiração por inatividade, renovada a cada uso      | `28800` (8 h)           |
+| `SESSION_ABSOLUTE_TTL_SECONDS` | Teto absoluto da sessão, não renovável         | `604800` (7 d)          |
+| `SESSION_COOKIE_SECURE`   | `true` em produção (exige HTTPS no cookie)          | `false`                 |
 | `TICKET_HMAC_SECRET`      | Assinatura do código do QR (**troque em produção**) | —                       |
 | `TMDB_API_KEY`            | Catálogo de filmes                                  | —                       |
 | `TICKETMASTER_API_KEY`    | Catálogo de shows                                   | —                       |
@@ -338,6 +350,51 @@ Roteiro sugerido para avaliação, cerca de 5 minutos:
 
 ---
 
+## Autenticação: sessão opaca em Redis
+
+O front recebe um **`session_id`**: 256 bits aleatórios, sem estrutura e sem significado. Ele ocupa
+o lugar que um JWT ocuparia — é o que o cliente guarda e reenvia — mas as propriedades são
+opostas. Todo o estado da sessão (quem é, qual papel) fica no Redis, sob `session:<id>`.
+
+**Por que não JWT.** Um JWT é autocontido: quem tem o token tem os claims, e o servidor não
+consegue invalidá-lo antes de expirar. Isso troca uma consulta por três problemas — logout que não
+desloga, mudança de papel que só vale no próximo login, e claims legíveis por quem interceptar o
+token. Com token opaco o servidor é a única fonte de verdade: `DEL session:<id>` encerra a sessão
+naquele instante.
+
+O custo é uma consulta ao Redis por request autenticado — que é `O(1)` em memória, e o preço de
+poder revogar.
+
+**O que deliberadamente não fazemos** é guardar um JWT *dentro* do Redis e devolver esse JWT ao
+front. Isso anularia o ganho: o cliente voltaria a ter um token autocontido, decodificável e
+não-revogável, e o Redis seria só um armário no caminho. Não existe JWT em nenhum ponto deste
+fluxo.
+
+**Transporte.** O `session_id` vai em cookie `httponly`, `samesite=lax` — invisível para
+JavaScript, o que neutraliza roubo de sessão por XSS (vantagem que um JWT em `localStorage` não
+tem). O header `Authorization: Bearer <session_id>` é aceito como alternativa, para `curl` e
+testes.
+
+**Duas janelas de expiração**, porque resolvem coisas diferentes:
+
+| Janela | Padrão | Renovada? | Resolve |
+| ------ | ------ | --------- | ------- |
+| Inatividade (`SESSION_TTL_SECONDS`) | 8 h | sim, a cada request | quem parou de usar perde a sessão |
+| Absoluta (`SESSION_ABSOLUTE_TTL_SECONDS`) | 7 dias | **nunca** | aba aberta para sempre = sessão eterna, e token roubado valendo sem prazo |
+
+**Redis cair não perde dado de negócio.** Sessão é estado descartável: ninguém perde ingresso nem
+reserva, as pessoas só precisam entrar de novo. É por isso que o hold de assento **não** mora aqui
+— ele pertence à mesma transação que garante o assento, no Postgres. O `/health` reporta os dois
+serviços separadamente justamente para essa distinção não virar adivinhação.
+
+**Papéis.** Os três do PDF são disjuntos — organizador não compra, cliente não valida — então a
+autorização é lista branca explícita por rota (`RequireOrganizer`, `RequireCustomer`,
+`RequireGate`), não hierarquia de permissão. A portaria é vinculada a um evento
+(`users.gate_event_id`), e é isso que permite responder **evento errado** em vez de aceitar
+qualquer ingresso legítimo.
+
+---
+
 ## Decisões de domínio
 
 **Hold antes de pagar.** Escolher assento cria uma reserva `PENDING` com `expires_at`. Sem hold,
@@ -404,12 +461,33 @@ poder reagir por código em vez de por texto.
 ## Testes
 
 ```bash
-cd backend && pytest              # domínio + rotas
-cd frontend && npm test           # componentes
+cd backend
+pip install -r requirements-dev.txt
+pytest
 ```
 
-O teste que mais importa é o de concorrência: dispara reservas simultâneas para o mesmo assento e
-verifica que exatamente uma vence. É o requisito mais fácil de parecer resolvido sem estar.
+**27 testes passando.** Sessão e HMAC rodam com um Redis em memória (`fakeredis`), sem precisar de
+infraestrutura. Os testes de concorrência exigem um Postgres real — e isso é proposital: o índice
+parcial *é* a regra de negócio, então testá-lo contra um banco falso não provaria nada. Sem
+`TEST_DATABASE_URL` eles são **pulados**, nunca aprovados em silêncio:
+
+```bash
+docker run -d --name palco-test-pg -e POSTGRES_USER=palco -e POSTGRES_PASSWORD=palco   -e POSTGRES_DB=palco -p 5432:5432 postgres:16-alpine
+
+export TEST_DATABASE_URL=postgresql+psycopg://palco:palco@localhost:5432/palco
+export DATABASE_URL=$TEST_DATABASE_URL
+alembic upgrade head
+pytest                            # agora inclui os testes de concorrência
+```
+
+O teste que mais importa dispara **20 reservas simultâneas para o mesmo assento** e verifica que
+exatamente uma vence. É o requisito mais fácil de parecer resolvido sem estar — e por isso o único
+que faz questão de um banco de verdade. Ele também cobre o outro lado: cancelar ou expirar devolve
+o assento ao estoque, e reservas de pista (`seat_label NULL`) não se bloqueiam entre si.
+
+```bash
+cd frontend && npm test           # componentes (ainda não implementado)
+```
 
 ---
 
@@ -436,10 +514,13 @@ Usei **Claude Code (Opus)** como par ao longo do desafio. O que ficou com cada u
 - Casos de teste, e a redação deste README a partir das minhas decisões.
 
 **Onde discordei da IA:** a primeira sugestão foi colocar um JWT dentro do QR e usar Redis para
-os holds. Recusei os dois: o QR ficava denso demais para câmera de celular, e Redis era uma peça
-de infra a mais para resolver um problema que uma coluna `expires_at` resolve. Também descartei um
-schema com tabela de `seat_locks` separada — a constraint parcial faz o mesmo trabalho sem uma
-tabela a mais para manter em sincronia.
+os *holds* de assento. Recusei as duas: o QR ficava denso demais para câmera de celular, e o hold
+é estado que não pode se perder — pertence à mesma transação que garante o assento, então mora no
+Postgres, não num cache. Também descartei um schema com tabela de `seat_locks` separada: a
+constraint parcial faz o mesmo trabalho sem uma tabela a mais para manter em sincronia.
+
+O Redis entrou depois, para outra finalidade: guardar **sessão**, que é justamente estado
+descartável. Ver [Autenticação](#autenticação-sessão-opaca-em-redis).
 
 Os artefatos de contexto que produzi no caminho ficam versionados em [`docs/`](docs/).
 
@@ -455,15 +536,17 @@ de que já esteja pronto.
 | ---------------------------------------------- | --------------- |
 | README, decisões e desenho da arquitetura      | ✅ pronto       |
 | Estrutura do repositório e commit inicial      | ✅ pronto       |
-| Modelos, migrations e seed                     | 🔜 pendente     |
-| Autenticação e os 3 papéis                     | 🔜 pendente     |
+| Modelos e migration inicial                    | ✅ pronto       |
+| Autenticação por sessão opaca + 3 papéis       | ✅ pronto       |
+| Garantia de assento único (constraint + teste) | ✅ pronto       |
+| Seed de dados de teste                         | 🔜 pendente     |
 | Integração TMDb + Ticketmaster                 | 🔜 pendente     |
 | CRUD de eventos (organizador)                  | 🔜 pendente     |
 | Reserva com mapa de assentos + pista           | 🔜 pendente     |
 | Pagamento simulado (aprovação e recusa)        | 🔜 pendente     |
 | Emissão do ingresso, QR e link de compartilhar | 🔜 pendente     |
 | Tela de portaria com leitura por câmera        | 🔜 pendente     |
-| Testes                                         | 🔜 pendente     |
+| Testes (27: sessão, HMAC, concorrência)        | 🟡 parcial      |
 | Deploy público                                 | 🔜 pendente     |
 
 **Limitações conhecidas / avisos:**
@@ -472,4 +555,6 @@ de que já esteja pronto.
   gatilhos de aprovação/recusa, não validam nada.
 - A leitura do QR pela câmera exige HTTPS ou `localhost` — restrição do navegador, não da
   aplicação. Em outro host sem TLS, use a digitação manual do código.
-- O cache do catálogo é em memória do processo; com múltiplas instâncias cada uma tem o seu.
+- O cache do catálogo fica no Redis (`CATALOG_CACHE_TTL_SECONDS`, 15 min por padrão): como o
+  Redis já é dependência para sessão, usá-lo também aqui evita que cada instância tenha o seu
+  próprio cache e queime o rate limit das APIs externas em duplicidade.
