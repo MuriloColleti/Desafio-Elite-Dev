@@ -325,6 +325,17 @@ E também:
 - **1 ingresso já pago** da Ana no evento de cinema, com QR válido — dá para ir direto na portaria
   validar sem passar pelo checkout.
 - **1 ingresso já utilizado**, para ver a resposta `já utilizado` da portaria.
+- **1 ingresso de outro evento**, para ver a resposta `evento errado`.
+
+Ao terminar, o seed **imprime os códigos dos três ingressos** — dá para colar direto na
+digitação manual da portaria e ver as quatro respostas sem passar pelo checkout:
+
+```
+  válido .......... 7ca0a5b7-…-b23048439780.5102cb4ec5e915254664cdf55716caa3
+  já utilizado .... 9c0b5f4b-…-d030775d8cbb.cdb7d54f5dfdb5939d10873989f96d02
+  evento errado ... f8319efe-…-6ec4fd1e9f03.f9ffbd556699e81911bbcfe8ca78fc4d
+  inválido ........ qualquer texto
+```
 
 ---
 
@@ -466,8 +477,8 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-**27 testes passando.** Sessão e HMAC rodam com um Redis em memória (`fakeredis`), sem precisar de
-infraestrutura. Os testes de concorrência exigem um Postgres real — e isso é proposital: o índice
+**90 testes passando.** Sessão, HMAC, catálogo e normalização dos provedores rodam com um Redis
+em memória (`fakeredis`), sem precisar de infraestrutura. Os testes de concorrência exigem um Postgres real — e isso é proposital: o índice
 parcial *é* a regra de negócio, então testá-lo contra um banco falso não provaria nada. Sem
 `TEST_DATABASE_URL` eles são **pulados**, nunca aprovados em silêncio:
 
@@ -539,14 +550,14 @@ de que já esteja pronto.
 | Modelos e migration inicial                    | ✅ pronto       |
 | Autenticação por sessão opaca + 3 papéis       | ✅ pronto       |
 | Garantia de assento único (constraint + teste) | ✅ pronto       |
-| Seed de dados de teste                         | 🔜 pendente     |
-| Integração TMDb + Ticketmaster                 | 🔜 pendente     |
+| Seed de dados de teste                         | ✅ pronto       |
+| Catálogo TMDb + Ticketmaster (+ modo offline)   | ✅ pronto       |
 | CRUD de eventos (organizador)                  | 🔜 pendente     |
 | Reserva com mapa de assentos + pista           | 🔜 pendente     |
 | Pagamento simulado (aprovação e recusa)        | 🔜 pendente     |
 | Emissão do ingresso, QR e link de compartilhar | 🔜 pendente     |
 | Tela de portaria com leitura por câmera        | 🔜 pendente     |
-| Testes (27: sessão, HMAC, concorrência)        | 🟡 parcial      |
+| Testes (90: sessão, HMAC, concorrência, seed, catálogo) | 🟡 parcial |
 | Deploy público                                 | 🔜 pendente     |
 
 **Limitações conhecidas / avisos:**

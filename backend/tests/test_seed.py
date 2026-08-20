@@ -1,0 +1,214 @@
+"""O seed entrega o que o enunciado exige.
+
+O PDF é explícito: um organizador, dois clientes, um usuário de portaria e ao
+menos um evento publicado com ingressos disponíveis. Este teste é a garantia de
+que o roteiro de avaliação do README funciona de verdade — se o seed quebrar, o
+avaliador trava na primeira tela.
+"""
+
+import os
+
+import pytest
+from sqlalchemy import create_engine, func, select
+from sqlalchemy.orm import sessionmaker
+
+from app.core.security import verify_password, verify_ticket_code
+from app.models.entities import Event, Reservation, Ticket, User
+from app.models.enums import EventLayout, EventStatus, Role, TicketStatus
+from app.seed import SENHA, limpar, povoar
+
+TEST_DB_URL = os.getenv("TEST_DATABASE_URL")
+
+pytestmark = pytest.mark.skipif(
+    not TEST_DB_URL, reason="TEST_DATABASE_URL não definida — precisa de Postgres real"
+)
+
+
+@pytest.fixture(scope="module")
+def db_semeado():
+    engine = create_engine(TEST_DB_URL)
+    Session = sessionmaker(bind=engine)
+
+    with Session() as db:
+        limpar(db)
+        refs = povoar(db)
+
+    with Session() as db:
+        yield db, refs
+
+    engine.dispose()
+
+
+# --- Usuários ---
+
+
+def test_cria_os_quatro_usuarios_exigidos(db_semeado):
+    db, _ = db_semeado
+    papeis = dict(
+        db.execute(select(User.role, func.count(User.id)).group_by(User.role)).all()
+    )
+
+    assert papeis[Role.ORGANIZER] == 1
+    assert papeis[Role.CUSTOMER] == 2, "o PDF pede dois clientes"
+    assert papeis[Role.GATE] == 1
+
+
+def test_senha_documentada_funciona(db_semeado):
+    """Se a senha do README não logar, o avaliador para na tela de login."""
+    db, _ = db_semeado
+    for email in (
+        "organizador@palco.dev",
+        "ana@palco.dev",
+        "bruno@palco.dev",
+        "portaria@palco.dev",
+    ):
+        u = db.scalar(select(User).where(User.email == email))
+        assert u is not None, f"{email} não foi criado"
+        assert verify_password(SENHA, u.password_hash), f"senha não confere para {email}"
+
+
+def test_portaria_esta_vinculada_a_um_evento(db_semeado):
+    """Sem vínculo não há como responder "evento errado"."""
+    db, _ = db_semeado
+    portaria = db.scalar(select(User).where(User.role == Role.GATE))
+    assert portaria.gate_event_id is not None
+
+    evento = db.get(Event, portaria.gate_event_id)
+    assert evento.status is EventStatus.PUBLISHED
+
+
+# --- Eventos ---
+
+
+def test_tem_evento_publicado_com_ingresso_disponivel(db_semeado):
+    """Exigência literal do PDF."""
+    db, _ = db_semeado
+    publicados = db.scalars(
+        select(Event).where(Event.status == EventStatus.PUBLISHED)
+    ).all()
+
+    assert len(publicados) >= 1
+
+    for e in publicados:
+        vendidos = db.scalar(
+            select(func.coalesce(func.sum(Reservation.quantity), 0)).where(
+                Reservation.event_id == e.id,
+                Reservation.status.in_(("PENDING", "PAID")),
+            )
+        )
+        assert vendidos < e.capacity, f"{e.title} não tem lugar disponível"
+
+
+def test_cobre_os_dois_layouts_de_reserva(db_semeado):
+    """Mapa de assentos e pista, para o avaliador ver os dois fluxos."""
+    db, _ = db_semeado
+    layouts = {
+        e.layout
+        for e in db.scalars(
+            select(Event).where(Event.status == EventStatus.PUBLISHED)
+        ).all()
+    }
+    assert EventLayout.SEATED in layouts
+    assert EventLayout.GENERAL in layouts
+
+
+def test_evento_com_assentos_tem_dimensoes_do_mapa(db_semeado):
+    db, _ = db_semeado
+    for e in db.scalars(select(Event).where(Event.layout == EventLayout.SEATED)).all():
+        assert e.seat_rows and e.seats_per_row
+        assert e.seat_rows * e.seats_per_row == e.capacity, (
+            f"{e.title}: capacidade não bate com o mapa"
+        )
+
+
+def test_tem_rascunho_para_o_painel_do_organizador(db_semeado):
+    db, _ = db_semeado
+    assert db.scalar(select(Event).where(Event.status == EventStatus.DRAFT)) is not None
+
+
+def test_eventos_estao_no_futuro(db_semeado):
+    """Datas relativas: o seed não pode envelhecer e sumir da vitrine."""
+    db, _ = db_semeado
+    from datetime import UTC, datetime
+
+    agora = datetime.now(UTC)
+    for e in db.scalars(
+        select(Event).where(Event.status == EventStatus.PUBLISHED)
+    ).all():
+        assert e.starts_at > agora, f"{e.title} já passou"
+
+
+def test_precos_sao_inteiros_positivos(db_semeado):
+    db, _ = db_semeado
+    for e in db.scalars(select(Event)).all():
+        assert isinstance(e.price_cents, int) and e.price_cents > 0
+
+
+# --- Assentos ocupados ---
+
+
+def test_mapa_tem_assentos_ocupados(db_semeado):
+    """Mapa vazio não demonstra que a indisponibilidade funciona."""
+    db, _ = db_semeado
+    ocupados = db.scalar(
+        select(func.count(Reservation.id)).where(
+            Reservation.seat_label.is_not(None),
+            Reservation.status == "PAID",
+        )
+    )
+    assert ocupados >= 5
+
+
+# --- Ingressos (os três casos da portaria) ---
+
+
+def test_tem_ingresso_valido_usado_e_de_outro_evento(db_semeado):
+    db, _ = db_semeado
+    status = {t.status for t in db.scalars(select(Ticket)).all()}
+    assert TicketStatus.VALID in status
+    assert TicketStatus.USED in status
+
+
+def test_codigos_impressos_pelo_seed_sao_validos(db_semeado):
+    """O seed imprime códigos para colar na portaria — precisam funcionar."""
+    db, refs = db_semeado
+
+    for chave in ("ingresso_valido", "ingresso_usado", "ingresso_outro_evento"):
+        ticket_id = verify_ticket_code(refs[chave])
+        assert ticket_id is not None, f"{chave}: HMAC não confere"
+        assert db.get(Ticket, ticket_id) is not None, f"{chave}: ingresso não existe"
+
+
+def test_ingresso_de_outro_evento_e_de_evento_diferente_da_portaria(db_semeado):
+    """Senão o caso "evento errado" não é testável."""
+    db, refs = db_semeado
+
+    portaria = db.scalar(select(User).where(User.role == Role.GATE))
+    ticket_id = verify_ticket_code(refs["ingresso_outro_evento"])
+    ingresso = db.get(Ticket, ticket_id)
+
+    assert ingresso.reservation.event_id != portaria.gate_event_id
+
+
+def test_ingresso_usado_registra_quando_e_por_quem(db_semeado):
+    db, refs = db_semeado
+    ingresso = db.get(Ticket, verify_ticket_code(refs["ingresso_usado"]))
+
+    assert ingresso.status is TicketStatus.USED
+    assert ingresso.used_at is not None
+    assert ingresso.used_by_id is not None
+
+
+def test_share_tokens_sao_unicos_e_opacos(db_semeado):
+    db, _ = db_semeado
+    tokens = [t.share_token for t in db.scalars(select(Ticket)).all()]
+
+    assert len(tokens) == len(set(tokens))
+    for t in tokens:
+        assert len(t) >= 20, "token curto é adivinhável"
+
+
+def test_todo_ingresso_vem_de_reserva_paga(db_semeado):
+    db, _ = db_semeado
+    for t in db.scalars(select(Ticket)).all():
+        assert t.reservation.status == "PAID", "ingresso sem pagamento aprovado"
