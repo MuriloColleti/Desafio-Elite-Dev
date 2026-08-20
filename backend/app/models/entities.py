@@ -145,6 +145,7 @@ class Reservation(Base, TimestampMixin):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     event: Mapped["Event"] = relationship(back_populates="reservations")
+    customer: Mapped["User"] = relationship(foreign_keys=[customer_id])
     payments: Mapped[list["Payment"]] = relationship(back_populates="reservation")
     ticket: Mapped["Ticket | None"] = relationship(back_populates="reservation", uselist=False)
 

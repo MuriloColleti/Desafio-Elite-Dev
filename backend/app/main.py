@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
-from app.api import auth, catalog, events, reservations
+from app.api import auth, catalog, events, gate, payments, reservations, tickets
 from app.core.config import settings
 from app.core.db import engine
 from app.core.errors import AppError, app_error_handler, unhandled_error_handler
@@ -35,6 +35,9 @@ app.include_router(auth.router)
 app.include_router(catalog.router)
 app.include_router(events.router)
 app.include_router(reservations.router)
+app.include_router(payments.router)
+app.include_router(tickets.router)
+app.include_router(gate.router)
 
 
 @app.get("/health", tags=["infra"])

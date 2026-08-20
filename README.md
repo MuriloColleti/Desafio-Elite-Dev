@@ -4,9 +4,11 @@ Desafio Elite Dev (Verzel). Uma plataforma onde um **organizador** publica event
 catálogo externo (filmes do TMDb, shows do Ticketmaster), um **cliente** reserva lugar, paga de
 forma simulada e recebe um ingresso com QR, e a **portaria** valida esse ingresso na entrada.
 
-> **Status:** este repositório está em construção durante a semana do desafio. A seção
-> [Status de implementação](#status-de-implementação) diz exatamente o que já roda e o que ainda
-> não existe — nada acima dela deve ser lido como promessa de funcionalidade pronta.
+> **Status:** o **back-end está completo e testado** (182 testes) — todo o fluxo do enunciado
+> funciona pela API: catálogo, evento, reserva, pagamento com recusa, ingresso com QR, link de
+> compartilhamento e os quatro resultados da portaria. O **front-end ainda não existe**; até lá o
+> fluxo é percorrível pelo `/docs` (Swagger). Ver
+> [Status de implementação](#status-de-implementação).
 
 ---
 
@@ -352,6 +354,17 @@ Roteiro sugerido para avaliação, cerca de 5 minutos:
    mapa (os ocupados estão bloqueados) e siga para o checkout.
 4. **Pagamento recusado** — no checkout, use o cartão `4000 0000 0000 0002`. A recusa aparece e o
    assento volta a ficar disponível no mapa.
+
+   | Cartão                | Resultado                     |
+   | --------------------- | ----------------------------- |
+   | `4242 4242 4242 4242` | aprovado                      |
+   | `4000 0000 0000 0002` | recusado pelo emissor         |
+   | `4000 0000 0000 9995` | saldo insuficiente            |
+   | `4000 0000 0000 0069` | cartão expirado               |
+   | `4000 0000 0000 0127` | código de segurança inválido  |
+
+   Qualquer outro número é aprovado. A decisão é **determinística** pelo número, e não aleatória,
+   para os dois caminhos serem reproduzíveis. Os números seguem a convenção dos provedores reais.
 5. **Pagamento aprovado** — repita com `4242 4242 4242 4242`. O ingresso é emitido.
 6. **Meus ingressos** — veja o ingresso com o QR. Copie o link de compartilhamento e abra numa
    janela anônima: mostra o ingresso, somente leitura.
@@ -425,7 +438,17 @@ causa diferente:
 | **evento errado** | Ingresso legítimo, mas de outro evento                        |
 
 Marcar como usado é `UPDATE ... WHERE status = 'VALID'` com checagem de linhas afetadas: dois
-scanners na mesma porta lendo o mesmo QR no mesmo instante, e só um vê **válido**.
+scanners na mesma porta lendo o mesmo QR no mesmo instante, e só um vê **válido**. Se fosse
+`ticket.status = USED` seguido de commit, os dois leriam `VALID` antes de qualquer escrita e ambos
+passariam. Testado com 20 leituras simultâneas: exatamente uma entrada liberada.
+
+**A ordem das checagens importa.** Autenticidade (HMAC) → existência → evento → estado. Checar o
+estado antes do evento faria um ingresso de outro evento já utilizado responder *já utilizado*,
+escondendo de quem está na porta o problema real: está na porta errada. E validar na porta errada
+**não consome** o ingresso.
+
+As três recusas respondem **200**, não 4xx: são resultado de negócio que a portaria precisa exibir.
+Com 4xx o front cairia no tratamento de falha genérica em vez de mostrar o motivo.
 
 **Preço em centavos, inteiro.** `price_cents` em vez de float. Ninguém quer descobrir `0.1 + 0.2`
 num total de carrinho.
@@ -486,7 +509,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-**140 testes passando.** Sessão, HMAC, catálogo e normalização dos provedores rodam com um Redis
+**182 testes passando.** Sessão, HMAC, catálogo e normalização dos provedores rodam com um Redis
 em memória (`fakeredis`), sem precisar de infraestrutura. Os testes de concorrência exigem um Postgres real — e isso é proposital: o índice
 parcial *é* a regra de negócio, então testá-lo contra um banco falso não provaria nada. Sem
 `TEST_DATABASE_URL` eles são **pulados**, nunca aprovados em silêncio:
@@ -567,10 +590,12 @@ de que já esteja pronto.
 | Catálogo TMDb + Ticketmaster (+ modo offline)   | ✅ pronto       |
 | CRUD de eventos (organizador)                  | ✅ pronto       |
 | Reserva com mapa de assentos + pista           | ✅ pronto       |
-| Pagamento simulado (aprovação e recusa)        | 🔜 pendente     |
-| Emissão do ingresso, QR e link de compartilhar | 🔜 pendente     |
-| Tela de portaria com leitura por câmera        | 🔜 pendente     |
-| Testes (140: sessão, HMAC, concorrência, seed, catálogo, fluxo da API) | 🟡 parcial |
+| Pagamento simulado (aprovação e recusa)        | ✅ pronto       |
+| Emissão do ingresso, QR e link de compartilhar | ✅ pronto       |
+| Validação na portaria (API, 4 resultados)      | ✅ pronto       |
+| Front-end (todas as telas)                     | 🔜 pendente     |
+| Leitura do QR pela câmera                      | 🔜 pendente     |
+| Testes do back-end (182)                       | ✅ pronto       |
 | Deploy público                                 | 🔜 pendente     |
 
 **Limitações conhecidas / avisos:**
