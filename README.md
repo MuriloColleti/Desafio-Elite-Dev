@@ -7,7 +7,7 @@ forma simulada e recebe um ingresso com QR, e a **portaria** valida esse ingress
 > **Status:** o fluxo do enunciado funciona **ponta a ponta** — vitrine, criação de evento a partir
 > do catálogo, reserva com mapa de assentos ou pista, pagamento simulado com recusa, ingresso com
 > QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 209 testes;
-> front-end com 37. O que falta está em [Status de implementação](#status-de-implementação) —
+> front-end com 46. O que falta está em [Status de implementação](#status-de-implementação) —
 > principalmente cobertura de testes do front e o deploy.
 
 ---
@@ -100,13 +100,20 @@ ferramenta — e por um motivo concreto, não por contrariar:
 - **A tela da portaria é feita para ser lida de relance**, de pé, com fila esperando: o resultado
   ocupa a tela com ícone e cor, e não é uma mensagem discreta ao lado do formulário.
 
-**A entrada é uma parede de cartazes.** A vitrine abre com um carrossel de 8 pôsteres sobre fundo
-escuro — a única área escura da aplicação, e deliberada: é o que dá a sensação de chegar ao
-cinema, com o cartaz brilhando como numa sala de projeção, antes de o conteúdo claro começar.
-Mostra 4 por vez e desliza um a cada 4 segundos. **Pausa ao passar o mouse ou focar por
+**A entrada é uma parede de cartazes.** A vitrine abre com um carrossel de 8 pôsteres num bloco
+claro elevado — a separação vem da sombra, não da cor: uma faixa escura no topo pesava a tela e
+competia com os próprios cartazes. Mostra 4 por vez e desliza um a cada 4 segundos. **Pausa ao passar o mouse ou focar por
 teclado** — animação que rouba o cartaz debaixo do cursor de quem ia clicar é pior que animação
 nenhuma — e respeita `prefers-reduced-motion`. Some quando há busca ativa: quem procura algo
 específico não quer uma parede de cartazes na frente do resultado.
+
+**Recomendados em formato diferente do carrossel.** Abaixo dos destaques, uma lista numerada e
+compacta — miniatura, posição e o motivo da recomendação. Repetir o mesmo card duas vezes na
+mesma tela não acrescenta nada; ou o formato muda, ou a seção não se justifica. O critério é
+derivado do que já existe, sem endpoint novo: quem está mais perto de esgotar aparece primeiro,
+com o motivo à vista (*Últimos 4 ingressos*, *71% vendido*). É a recomendação honesta que os
+dados permitem — e onde não há urgência, não há número alarmista, porque inventar escassez é
+mentir para o cliente.
 
 Um detalhe que revela a orientação: o mapa de assentos tem a **tela do cinema desenhada no topo**.
 Sem ela é uma grade abstrata e ninguém sabe onde é a frente da sala.
@@ -735,7 +742,7 @@ de que já esteja pronto.
 | Front-end: portaria e painel do organizador    | ✅ pronto       |
 | Leitura do QR pela câmera                      | ✅ pronto       |
 | Testes do back-end (209)                       | ✅ pronto       |
-| Testes do front-end (37)                       | 🟡 parcial      |
+| Testes do front-end (46)                       | 🟡 parcial      |
 | Docker Compose (um comando)                    | ✅ pronto       |
 | Configuração de deploy (Render + Vercel)       | ✅ pronto       |
 | Deploy público publicado                       | 🔜 pendente     |

@@ -209,7 +209,7 @@ def povoar(db: Session) -> dict[str, str]:
     # responder "evento errado" em vez de aceitar qualquer ingresso legítimo.
     portaria.gate_event_id = cinema.id
 
-    # --- Assentos já ocupados (reservas pagas de outros clientes) ---
+    # --- Assentos já ocupados no evento do roteiro ---
     for label in ASSENTOS_OCUPADOS:
         r = Reservation(
             event_id=cinema.id,
@@ -227,6 +227,45 @@ def povoar(db: Session) -> dict[str, str]:
                 amount_cents=cinema.price_cents,
             )
         )
+
+    # --- Procura variada nos outros eventos ---
+    # Sem isto a lista "mais procurados" mostraria tudo com 0% vendido, e a
+    # seção não demonstraria nada. As proporções são espalhadas de propósito:
+    # um quase esgotado, alguns na metade, outros vazios.
+    OCUPACAO_ALVO = (0.94, 0.72, 0.58, 0.41, 0.23, 0.11, 0.0)
+
+    for evento, alvo in zip(eventos_cinema[1:] + eventos_show[1:], OCUPACAO_ALVO, strict=False):
+        vendidos = int(evento.capacity * alvo)
+        if vendidos == 0:
+            continue
+
+        if evento.layout is EventLayout.SEATED:
+            # Preenche do começo do mapa: os rótulos têm de existir na sala, e
+            # a validação de assento é a mesma que a reserva usa.
+            for n in range(vendidos):
+                fileira, numero = divmod(n, evento.seats_per_row or 1)
+                db.add(
+                    Reservation(
+                        event_id=evento.id,
+                        customer_id=ana.id if n % 2 else bruno.id,
+                        seat_label=f"{chr(ord('A') + fileira)}{numero + 1}",
+                        quantity=1,
+                        status=ReservationStatus.PAID,
+                    )
+                )
+        else:
+            # Pista: uma reserva agregada em vez de centenas de linhas.
+            db.add(
+                Reservation(
+                    event_id=evento.id,
+                    customer_id=bruno.id,
+                    seat_label=None,
+                    quantity=vendidos,
+                    status=ReservationStatus.PAID,
+                )
+            )
+
+    db.flush()
 
     # --- Ingresso válido da Ana (pronto para validar na portaria) ---
     reserva_ana = Reservation(

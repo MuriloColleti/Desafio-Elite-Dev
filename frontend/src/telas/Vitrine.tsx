@@ -14,6 +14,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 
 import { CardEvento } from '../componentes/CardEvento'
 import { Destaques } from '../componentes/Destaques'
+import { Recomendados } from '../componentes/Recomendados'
 import { ApiError, api } from '../lib/api'
 import { mensagemDeErro } from '../lib/formato'
 import type { Evento } from '../lib/tipos'
@@ -100,7 +101,12 @@ export function Vitrine() {
 
   return (
     <div className="pilha pilha-32">
-      {destaques.length > 0 && <Destaques eventos={destaques} />}
+      {destaques.length > 0 && (
+        <>
+          <Destaques eventos={destaques} />
+          <Recomendados eventos={eventos} />
+        </>
+      )}
 
       <header className="vitrine-cabeca">
         <h1>O que você vai ver hoje?</h1>
