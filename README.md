@@ -239,14 +239,30 @@ python -m app.seed --reset                # limpa e repopula
 User        id, name, email, password_hash, role(ORGANIZER|CUSTOMER|GATE)
 Event       id, organizer_id, catalog_ref, title, poster_url, synopsis,
             venue, starts_at, layout(SEATED|GENERAL), capacity, price_cents,
-            status(DRAFT|PUBLISHED|CANCELLED)
-Seat        id, event_id, label, row, number            -- só quando layout=SEATED
+            status(DRAFT|PUBLISHED|CANCELLED),
+            seat_rows, seats_per_row                   -- só quando layout=SEATED
 Reservation id, event_id, customer_id, seat_label|null, quantity,
             status(PENDING|PAID|CANCELLED|EXPIRED), expires_at
 Payment     id, reservation_id, status(APPROVED|DECLINED), amount_cents, reason
 Ticket      id, reservation_id, code_hmac, share_token,
             status(VALID|USED|CANCELLED), used_at, used_by_id
 ```
+
+**Não existe tabela de assentos** — decisão que tomei ao implementar, contra o que este README
+previa antes. Um assento é uma **string na reserva** (`seat_label = "C1"`), e a sala é descrita por
+três inteiros no evento (`seat_rows × seats_per_row = capacity`). O assento `C1` só passa a existir
+no banco quando alguém o reserva; antes disso é uma coordenada que o front calcula.
+
+Três motivos: um evento de 96 lugares custaria 96 inserts na criação, quase todos dizendo apenas
+"existo e estou livre" — informação já contida nas dimensões; "livre" passa a ser a ausência de
+reserva em vez de um `status` a manter sincronizado, eliminando duas fontes de verdade para o mesmo
+fato; e a constraint de unicidade recai direto sobre `reservations`, sem precisar de FK mais índice
+(ou de uma tabela de locks, que foi o que descartei).
+
+O custo é que o rótulo é validado em código (`_validar_rotulo`) e não por chave estrangeira: sem
+isso a constraint aceitaria `Z99`, que é único mas não existe numa sala 8×12. E sala irregular
+(corredor, acessibilidade) ou preço por setor não são representáveis — apareceriam como `Sector`,
+não como assento individual, que continuaria sendo linha demais para dizer pouco.
 
 A unicidade do assento é uma constraint no banco:
 
@@ -258,6 +274,12 @@ CREATE UNIQUE INDEX uq_seat_active
 
 Reserva cancelada, expirada ou com pagamento recusado sai do índice e o assento volta ao estoque —
 sem job de limpeza para devolver estoque.
+
+**A chave é o par, não o rótulo.** `seat_label` sozinho nunca é único: `C1` do Filme A e `C1` do
+Filme B são chaves diferentes para o Postgres, e as duas reservas coexistem. Isso é o que faz duas
+salas de mesmo tamanho não conflitarem — e, no caso mais comum de um cinema, faz a sessão das 18h e
+a das 21h na mesma sala serem independentes, porque são dois eventos. `seat_label` não identifica uma
+cadeira física; identifica uma posição dentro de um evento.
 
 ---
 
@@ -604,6 +626,14 @@ de que já esteja pronto.
   gatilhos de aprovação/recusa, não validam nada.
 - A leitura do QR pela câmera exige HTTPS ou `localhost` — restrição do navegador, não da
   aplicação. Em outro host sem TLS, use a digitação manual do código.
+- **O sistema não representa a sala física.** A unicidade do assento é do par `(event_id,
+  seat_label)`, então o mesmo rótulo `C1` em dois eventos distintos são assentos distintos — o que é
+  o comportamento correto tanto para duas salas diferentes quanto para duas sessões da mesma sala no
+  mesmo dia. O que o modelo **não** sabe é que uma sala existe: `venue` é texto livre, e nada impede
+  criar dois eventos no mesmo horário apontando para a mesma sala. Ninguém vende o mesmo assento
+  duas vezes num evento, mas dois eventos podem se sobrepor no mesmo espaço. Resolver isso pediria
+  uma entidade de sala com verificação de agenda — é alocação de espaço, outro problema, e fora do
+  escopo do enunciado.
 - **Assento marcado tem garantia forte; pista não.** O índice único parcial resolve a disputa por
   um lugar específico, mas a capacidade da pista é uma soma (`SUM(quantity) <= capacity`), e isso
   não se expressa como constraint. A checagem é feita na aplicação e, portanto, sujeita a corrida:

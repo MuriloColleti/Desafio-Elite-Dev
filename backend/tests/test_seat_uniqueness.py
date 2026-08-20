@@ -152,3 +152,43 @@ def test_pista_nao_e_limitada_pelo_indice(sessionmaker_, evento):
 def test_assentos_diferentes_nao_conflitam(sessionmaker_, evento):
     assert _reservar(sessionmaker_, evento, seat_label="A1") is True
     assert _reservar(sessionmaker_, evento, seat_label="A2") is True
+
+
+def test_mesmo_rotulo_em_eventos_diferentes_coexiste(sessionmaker_, evento):
+    """Duas salas de mesmo tamanho não conflitam.
+
+    A unicidade é do par `(event_id, seat_label)`: `C1` do Filme A e `C1` do
+    Filme B são chaves diferentes. Se o índice fosse só sobre `seat_label`, a
+    segunda sala nunca venderia — e a sessão das 21h herdaria os assentos
+    ocupados da das 18h, já que são dois eventos na mesma sala.
+    """
+    outro_evento = str(uuid.uuid4())
+    with sessionmaker_() as s:
+        s.execute(
+            text(
+                "INSERT INTO events (id,organizer_id,title,venue,starts_at,layout,"
+                "seat_rows,seats_per_row,capacity,price_cents,status,created_at,updated_at)"
+                " SELECT :novo, organizer_id, 'Outro Filme', 'Sala 2', starts_at,"
+                " 'SEATED', 8, 12, 96, price_cents, 'PUBLISHED', now(), now()"
+                " FROM events WHERE id = :orig"
+            ),
+            {"novo": outro_evento, "orig": evento["event_id"]},
+        )
+        s.commit()
+
+    assert _reservar(sessionmaker_, evento) is True
+
+    # Mesmo rótulo, outro evento: precisa passar.
+    outro = {"event_id": outro_evento, "customer_id": evento["customer_id"]}
+    assert _reservar(sessionmaker_, outro) is True
+
+    # E dentro de cada evento a unicidade continua valendo.
+    assert _reservar(sessionmaker_, evento) is False
+    assert _reservar(sessionmaker_, outro) is False
+
+    with sessionmaker_() as s:
+        total = s.execute(
+            text("SELECT count(*) FROM reservations WHERE seat_label = :s"),
+            {"s": SEAT},
+        ).scalar()
+    assert total == 2, "uma reserva do mesmo rótulo por evento"
