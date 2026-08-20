@@ -433,6 +433,12 @@ num total de carrinho.
 **Cancelamento devolve ao estoque.** Cliente cancela reserva paga → ingresso vira `CANCELLED`,
 sai do índice de unicidade, assento reaparece no mapa.
 
+**O que já foi vendido limita a edição.** Preço não muda com ingresso vendido (quem pagou pagou
+outro valor, e mudar criaria duas verdades para o mesmo evento); capacidade não cai abaixo do que
+já saiu; evento publicado não volta a rascunho — cancela-se. E a capacidade de evento com assentos
+é **derivada** do mapa (`seat_rows × seats_per_row`), não um campo livre: dois campos independentes
+divergiriam e o mapa deixaria de fechar com o total de ingressos.
+
 ---
 
 ## API
@@ -440,19 +446,22 @@ sai do índice de unicidade, assento reaparece no mapa.
 Documentação interativa (OpenAPI) em **http://localhost:8000/docs** com o servidor de pé.
 
 ```
-POST   /auth/login                    → token JWT
+POST   /auth/login                    → abre sessão (cookie httponly + session_id no corpo)
+POST   /auth/logout                   → encerra a sessão no servidor
 GET    /auth/me                       → usuário atual
 
-GET    /catalog/search?q=&source=     → busca em TMDb e/ou Ticketmaster
+GET    /catalog/search?q=&source=     → busca em TMDb e/ou Ticketmaster  [ORGANIZER]
 
-GET    /events                        → vitrine (publicados, com busca e filtro)
-GET    /events/:id                    → detalhe + mapa de assentos
-POST   /events                        → cria           [ORGANIZER]
-PATCH  /events/:id                    → edita/publica  [ORGANIZER]
-DELETE /events/:id                    → cancela        [ORGANIZER]
+GET    /events                        → vitrine: publicados e futuros, com busca e filtro
+GET    /events/:id                    → detalhe + mapa de assentos com os ocupados
 
-POST   /reservations                  → cria hold      [CUSTOMER]
-DELETE /reservations/:id              → libera hold    [CUSTOMER]
+GET    /organizer/events              → todos os meus eventos    [ORGANIZER]
+POST   /organizer/events              → cria (publish opcional)  [ORGANIZER]
+PATCH  /organizer/events/:id          → edita / publica          [ORGANIZER]
+DELETE /organizer/events/:id          → cancela                  [ORGANIZER]
+
+POST   /reservations                  → cria hold (409 SEAT_TAKEN se perdeu)  [CUSTOMER]
+DELETE /reservations/:id              → libera hold, devolve ao estoque       [CUSTOMER]
 
 POST   /payments                      → cobrança simulada (aprova ou recusa)
 
@@ -477,7 +486,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-**90 testes passando.** Sessão, HMAC, catálogo e normalização dos provedores rodam com um Redis
+**140 testes passando.** Sessão, HMAC, catálogo e normalização dos provedores rodam com um Redis
 em memória (`fakeredis`), sem precisar de infraestrutura. Os testes de concorrência exigem um Postgres real — e isso é proposital: o índice
 parcial *é* a regra de negócio, então testá-lo contra um banco falso não provaria nada. Sem
 `TEST_DATABASE_URL` eles são **pulados**, nunca aprovados em silêncio:
@@ -490,6 +499,10 @@ export DATABASE_URL=$TEST_DATABASE_URL
 alembic upgrade head
 pytest                            # agora inclui os testes de concorrência
 ```
+
+Os testes de fluxo (`test_api_flow.py`) exercitam a API pelo HTTP, e não os serviços diretamente:
+é o que garante que as guardas de papel e os códigos de erro estão de fato ligados nas rotas —
+um serviço correto com uma rota sem guarda passaria num teste de unidade.
 
 O teste que mais importa dispara **20 reservas simultâneas para o mesmo assento** e verifica que
 exatamente uma vence. É o requisito mais fácil de parecer resolvido sem estar — e por isso o único
@@ -552,12 +565,12 @@ de que já esteja pronto.
 | Garantia de assento único (constraint + teste) | ✅ pronto       |
 | Seed de dados de teste                         | ✅ pronto       |
 | Catálogo TMDb + Ticketmaster (+ modo offline)   | ✅ pronto       |
-| CRUD de eventos (organizador)                  | 🔜 pendente     |
-| Reserva com mapa de assentos + pista           | 🔜 pendente     |
+| CRUD de eventos (organizador)                  | ✅ pronto       |
+| Reserva com mapa de assentos + pista           | ✅ pronto       |
 | Pagamento simulado (aprovação e recusa)        | 🔜 pendente     |
 | Emissão do ingresso, QR e link de compartilhar | 🔜 pendente     |
 | Tela de portaria com leitura por câmera        | 🔜 pendente     |
-| Testes (90: sessão, HMAC, concorrência, seed, catálogo) | 🟡 parcial |
+| Testes (140: sessão, HMAC, concorrência, seed, catálogo, fluxo da API) | 🟡 parcial |
 | Deploy público                                 | 🔜 pendente     |
 
 **Limitações conhecidas / avisos:**
@@ -566,6 +579,13 @@ de que já esteja pronto.
   gatilhos de aprovação/recusa, não validam nada.
 - A leitura do QR pela câmera exige HTTPS ou `localhost` — restrição do navegador, não da
   aplicação. Em outro host sem TLS, use a digitação manual do código.
+- **Assento marcado tem garantia forte; pista não.** O índice único parcial resolve a disputa por
+  um lugar específico, mas a capacidade da pista é uma soma (`SUM(quantity) <= capacity`), e isso
+  não se expressa como constraint. A checagem é feita na aplicação e, portanto, sujeita a corrida:
+  duas compras simultâneas de pista podem passar juntas e estourar a capacidade em alguns lugares.
+  Aceitei o risco em vez de serializar toda compra com um lock por evento — em pista o overbooking
+  pequeno é reconciliável na entrada, enquanto vender o mesmo assento numerado duas vezes não é.
+  Se fosse necessário fechar isso, o caminho seria `SELECT ... FOR UPDATE` na linha do evento.
 - O cache do catálogo fica no Redis (`CATALOG_CACHE_TTL_SECONDS`, 15 min por padrão): como o
   Redis já é dependência para sessão, usá-lo também aqui evita que cada instância tenha o seu
   próprio cache e queime o rate limit das APIs externas em duplicidade.
