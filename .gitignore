@@ -1,0 +1,42 @@
+# --- Python / back-end ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+
+# --- Node / front-end ---
+node_modules/
+dist/
+dist-ssr/
+.vite/
+coverage/
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Ambiente (nunca versionar chaves) ---
+.env
+.env.*
+!.env.example
+
+# --- Banco local ---
+*.sqlite3
+*.db
+pgdata/
+
+# --- Editores / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Ferramentas de IA (contexto local, não faz parte da entrega) ---
+.claude/
