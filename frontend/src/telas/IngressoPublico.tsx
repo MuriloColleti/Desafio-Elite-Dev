@@ -56,7 +56,7 @@ export function IngressoPublico() {
             {ingresso.event_title}
           </h1>
 
-          <p className="texto-p texto-medio" style={{ margin: '8px 0 0' }}>
+          <p className="texto-p texto-2" style={{ margin: '8px 0 0' }}>
             {dataHoraLonga(ingresso.event_starts_at)}
             <br />
             {ingresso.event_venue}
@@ -67,7 +67,7 @@ export function IngressoPublico() {
           <dl className="bilhete-dados">
             <div>
               <dt>{ingresso.seat_label ? 'Assento' : 'Ingressos'}</dt>
-              <dd className="serifa" style={{ fontSize: '1.35rem' }}>
+              <dd className="bilhete-destaque">
                 {ingresso.seat_label ?? `${ingresso.quantity}×`}
               </dd>
             </div>

@@ -116,7 +116,7 @@ export function Portaria() {
     <div className="portaria">
       <div className="pilha pilha-8">
         <h1>Portaria</h1>
-        <p className="texto-medio texto-p" style={{ margin: 0 }}>
+        <p className="texto-2 texto-p" style={{ margin: 0 }}>
           {usuario?.gate_event_id
             ? 'Valide os ingressos da entrada deste evento.'
             : 'Esta portaria não está vinculada a um evento; qualquer ingresso legítimo será aceito.'}

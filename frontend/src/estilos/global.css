@@ -1,49 +1,61 @@
 /*
- * Direção visual — decisões, não padrões.
+ * Direção visual.
  *
- * O enunciado pede para fugir do "AI slop": aquela interface escura de gradiente
- * roxo e card de vidro que todo projeto gerado tem. Então a escolha aqui é o
- * oposto disso, e por um motivo concreto: numa plataforma de eventos o que o
- * usuário reconhece é o **pôster** do filme ou do show. Fundo claro e neutro
- * deixa a imagem mandar na tela; fundo escuro competiria com ela.
+ * Claro e moderno, sem serifa. O que guia as decisões:
  *
- * - Papel off-white, quase impresso, em vez de branco puro ou cinza-azulado.
- * - Uma cor de destaque só (vermelho-tijolo), emprestada de bilheteria de
- *   cinema. Usada com parcimônia: ação principal, preço, estado de erro.
- * - Tipografia com peso: título em serifa, porque cartaz de cinema é serifa.
- * - Cantos pouco arredondados (4px). Bilhete é papel, não bolha.
- * - Sem sombra difusa. Separação por linha de 1px, como grade editorial.
+ * - **O pôster manda.** Numa plataforma de eventos a imagem é o que a pessoa
+ *   reconhece antes de ler. Fundo claro e neutro deixa a arte brilhar; o resto
+ *   da interface fica quieto de propósito.
+ * - **Respiro em vez de moldura.** Espaço branco separa melhor que borda. Onde
+ *   há caixa, ela é sutil, com sombra suave em vez de linha dura.
+ * - **Uma cor de ação.** Vermelho de bilheteria em botão principal, preço e
+ *   erro. Onde não há decisão a tomar, não há cor.
+ * - **Tipografia sans com hierarquia forte.** Título grande e apertado (letter
+ *   spacing negativo), corpo confortável. Sem serifa: a estética de "cartaz
+ *   impresso" competia com o pôster em vez de emoldurá-lo.
  */
 
 :root {
-  /* Papel e tinta */
-  --papel: #f7f5f1;
-  --papel-alto: #fffefb;
-  --tinta: #1a1714;
-  --tinta-media: #5c554d;
-  --tinta-fraca: #918a80;
-  --linha: #ded8ce;
-  --linha-forte: #c4bcaf;
+  /* Superfícies — cinza levíssimo no fundo, branco nos cards, para o card
+     "subir" sem precisar de borda grossa. */
+  --fundo: #f4f5f7;
+  --superficie: #ffffff;
+  --superficie-2: #fafbfc;
 
-  /* Destaque: bilheteria */
-  --marca: #b0402c;
-  --marca-escura: #8a3222;
-  --marca-fraca: #f5e6e1;
+  --texto: #16181d;
+  --texto-2: #545a63;
+  --texto-3: #8a919c;
+  --borda: #e4e7eb;
+  --borda-2: #d0d5db;
+
+  /* Ação */
+  --marca: #d8342a;
+  --marca-escura: #b02620;
+  --marca-clara: #fdeceb;
 
   /* Estados */
-  --ok: #2f6b45;
-  --ok-fraco: #e4efe7;
-  --alerta: #8a6420;
-  --alerta-fraco: #f7eeda;
-  --erro: #a8321f;
-  --erro-fraco: #f9e5e1;
+  --ok: #10794a;
+  --ok-fraco: #e6f5ed;
+  --alerta: #a8690a;
+  --alerta-fraco: #fdf2df;
+  --erro: #c62b1e;
+  --erro-fraco: #fdeceb;
 
-  --serifa: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
-  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --fonte:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
 
-  --raio: 4px;
-  --largura: 1120px;
+  --r-sm: 8px;
+  --r: 12px;
+  --r-lg: 18px;
+
+  /* Sombras em camadas: a de baixo dá contato, a de cima dá profundidade. */
+  --sombra-1: 0 1px 2px rgba(16, 18, 22, 0.05), 0 1px 3px rgba(16, 18, 22, 0.04);
+  --sombra-2: 0 2px 4px rgba(16, 18, 22, 0.05), 0 4px 12px rgba(16, 18, 22, 0.07);
+  --sombra-3: 0 8px 16px rgba(16, 18, 22, 0.08), 0 16px 40px rgba(16, 18, 22, 0.1);
+
+  --largura: 1200px;
 }
 
 * {
@@ -57,32 +69,38 @@ body {
 }
 
 body {
-  background: var(--papel);
-  color: var(--tinta);
-  font-family: var(--sans);
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: var(--fonte);
   font-size: 15px;
-  line-height: 1.55;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 h1,
 h2,
-h3 {
-  font-family: var(--serifa);
-  font-weight: 600;
-  line-height: 1.15;
-  letter-spacing: -0.01em;
+h3,
+h4 {
   margin: 0;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.022em;
 }
 
 h1 {
-  font-size: 2rem;
+  font-size: clamp(1.75rem, 3.2vw, 2.5rem);
+  letter-spacing: -0.03em;
 }
 h2 {
-  font-size: 1.4rem;
+  font-size: 1.35rem;
 }
 h3 {
-  font-size: 1.1rem;
+  font-size: 1.05rem;
+}
+
+p {
+  margin: 0;
 }
 
 a {
@@ -103,17 +121,31 @@ textarea {
   font-size: inherit;
 }
 
+:focus-visible {
+  outline: 2px solid var(--marca);
+  outline-offset: 2px;
+}
+
 /* --- Layout --- */
 
 .container {
   max-width: var(--largura);
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 28px;
+}
+
+@media (max-width: 560px) {
+  .container {
+    padding: 0 18px;
+  }
 }
 
 .pilha {
   display: flex;
   flex-direction: column;
+}
+.pilha-4 {
+  gap: 4px;
 }
 .pilha-8 {
   gap: 8px;
@@ -127,6 +159,9 @@ textarea {
 .pilha-32 {
   gap: 32px;
 }
+.pilha-40 {
+  gap: 40px;
+}
 
 .linha-flex {
   display: flex;
@@ -136,63 +171,143 @@ textarea {
 .entre {
   justify-content: space-between;
 }
+.quebra {
+  flex-wrap: wrap;
+}
 
 /* --- Cabeçalho --- */
 
 .cabecalho {
-  border-bottom: 1px solid var(--linha);
-  background: var(--papel-alto);
+  background: rgba(255, 255, 255, 0.86);
+  /* Vidro discreto: o conteúdo passa por baixo sem sumir, e o cabeçalho não
+     vira uma barra opaca pesada. */
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--borda);
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: 30;
 }
 
-.cabecalho-interno {
+/* A barra ignora o container central: a marca ancora o canto da janela, e as
+   ações ancoram o outro. É a convenção de barra de aplicação — logo flutuando
+   no meio da tela parece conteúdo, não navegação. */
+.barra {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 60px;
+  height: 64px;
   gap: 24px;
+  padding: 0 24px;
 }
 
-.marca-logo {
-  font-family: var(--serifa);
-  font-size: 1.35rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+.barra-direita {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
 }
 
-/* O ponto vermelho ao lado do nome: um único acento de cor na identidade,
-   que remete ao furo do bilhete picado. */
-.marca-logo::after {
-  content: '';
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
+@media (max-width: 900px) {
+  .barra {
+    padding: 0 16px;
+    gap: 12px;
+  }
+  .barra-direita {
+    gap: 8px;
+  }
+}
+
+.conteudo {
+  padding: 36px 28px 80px;
+}
+
+@media (max-width: 560px) {
+  .conteudo {
+    padding: 24px 18px 64px;
+  }
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+/* Marca gráfica: bilhete picotado em duas metades. */
+.logo-marca {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
   background: var(--marca);
-  margin-left: 3px;
-  vertical-align: 0.35em;
+  position: relative;
+  flex-shrink: 0;
+}
+.logo-marca::before,
+.logo-marca::after {
+  content: '';
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--superficie);
+  top: 50%;
+  transform: translateY(-50%);
+}
+.logo-marca::before {
+  left: -3.5px;
+}
+.logo-marca::after {
+  right: -3.5px;
 }
 
 .nav {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 6px;
   font-size: 0.9rem;
+  font-weight: 500;
 }
 
-.nav a {
-  color: var(--tinta-media);
-  padding: 4px 0;
-  border-bottom: 2px solid transparent;
+.nav-item {
+  padding: 8px 14px;
+  border-radius: var(--r-sm);
+  color: var(--texto-2);
+  transition: background-color 0.14s, color 0.14s;
 }
-.nav a:hover {
-  color: var(--tinta);
+.nav-item:hover {
+  background: var(--fundo);
+  color: var(--texto);
 }
-.nav a.ativo {
-  color: var(--tinta);
-  border-bottom-color: var(--marca);
+.nav-item.ativo {
+  background: var(--marca-clara);
+  color: var(--marca);
+  font-weight: 600;
+}
+
+.usuario-chip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 6px 5px 12px;
+  border-radius: 999px;
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+}
+
+.avatar {
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: var(--marca);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
 /* --- Botões --- */
@@ -202,44 +317,57 @@ textarea {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 18px;
+  padding: 11px 20px;
   border: 1px solid transparent;
-  border-radius: var(--raio);
+  border-radius: var(--r-sm);
   font-size: 0.925rem;
-  font-weight: 500;
-  transition: background-color 0.12s, border-color 0.12s, color 0.12s;
-  white-space: nowrap;
+  font-weight: 600;
+  transition: background-color 0.14s, border-color 0.14s, box-shadow 0.14s, transform 0.08s;
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .btn-principal {
   background: var(--marca);
   color: #fff;
+  box-shadow: var(--sombra-1);
 }
 .btn-principal:hover:not(:disabled) {
   background: var(--marca-escura);
+  box-shadow: var(--sombra-2);
 }
 
 .btn-secundario {
-  background: transparent;
-  color: var(--tinta);
-  border-color: var(--linha-forte);
+  background: var(--superficie);
+  color: var(--texto);
+  border-color: var(--borda-2);
 }
 .btn-secundario:hover:not(:disabled) {
-  border-color: var(--tinta-media);
-  background: var(--papel-alto);
+  border-color: var(--texto-3);
+  box-shadow: var(--sombra-1);
+}
+
+.btn-fantasma {
+  background: transparent;
+  color: var(--texto-2);
+  border-color: transparent;
+}
+.btn-fantasma:hover:not(:disabled) {
+  background: var(--fundo);
+  color: var(--texto);
 }
 
 .btn-texto {
   background: none;
   border: none;
-  color: var(--tinta-media);
-  padding: 6px 0;
-  text-decoration: underline;
-  text-decoration-color: var(--linha-forte);
-  text-underline-offset: 3px;
+  padding: 4px 0;
+  color: var(--marca);
+  font-weight: 600;
 }
 .btn-texto:hover {
-  color: var(--marca);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .btn:disabled {
@@ -250,84 +378,105 @@ textarea {
 .btn-largo {
   width: 100%;
 }
+.btn-grande {
+  padding: 14px 26px;
+  font-size: 1rem;
+}
+.btn-p {
+  padding: 7px 13px;
+  font-size: 0.82rem;
+}
 
 /* --- Campos --- */
 
 .campo {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 7px;
 }
 
 .campo label {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: var(--tinta-media);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: var(--texto);
 }
 
 .campo input,
 .campo select {
-  padding: 10px 12px;
-  border: 1px solid var(--linha-forte);
-  border-radius: var(--raio);
-  background: var(--papel-alto);
-  color: var(--tinta);
+  padding: 11px 14px;
+  border: 1px solid var(--borda-2);
+  border-radius: var(--r-sm);
+  background: var(--superficie);
+  color: var(--texto);
+  transition: border-color 0.14s, box-shadow 0.14s;
+}
+
+.campo input:hover,
+.campo select:hover {
+  border-color: var(--texto-3);
 }
 
 .campo input:focus,
 .campo select:focus {
-  outline: 2px solid var(--marca);
-  outline-offset: -1px;
+  outline: none;
   border-color: var(--marca);
+  box-shadow: 0 0 0 3px var(--marca-clara);
 }
 
 .campo-dica {
   font-size: 0.8rem;
-  color: var(--tinta-fraca);
+  color: var(--texto-3);
+}
+
+/* --- Cartão --- */
+
+.cartao {
+  background: var(--superficie);
+  border-radius: var(--r);
+  box-shadow: var(--sombra-1);
+  padding: 24px;
 }
 
 /* --- Avisos --- */
 
 .aviso {
-  padding: 12px 14px;
-  border-radius: var(--raio);
-  border-left: 3px solid;
+  display: flex;
+  gap: 11px;
+  padding: 13px 16px;
+  border-radius: var(--r-sm);
   font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 .aviso-erro {
   background: var(--erro-fraco);
-  border-color: var(--erro);
-  color: #7a2416;
+  color: #8f1f15;
 }
 .aviso-ok {
   background: var(--ok-fraco);
-  border-color: var(--ok);
-  color: #1f4a2f;
+  color: #0b5334;
 }
 .aviso-alerta {
   background: var(--alerta-fraco);
-  border-color: var(--alerta);
-  color: #6b4d18;
+  color: #7a4d07;
 }
 .aviso-neutro {
-  background: var(--papel-alto);
-  border-color: var(--linha-forte);
-  color: var(--tinta-media);
+  background: var(--superficie-2);
+  color: var(--texto-2);
+  border: 1px solid var(--borda);
 }
 
 /* --- Etiquetas --- */
 
 .etiqueta {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 2px;
-  font-size: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.01em;
 }
 
 .etiqueta-publicado {
@@ -343,17 +492,21 @@ textarea {
   color: var(--erro);
 }
 .etiqueta-usado {
-  background: var(--linha);
-  color: var(--tinta-media);
+  background: var(--fundo);
+  color: var(--texto-2);
+}
+.etiqueta-marca {
+  background: var(--marca-clara);
+  color: var(--marca);
 }
 
 /* --- Utilidades --- */
 
-.texto-fraco {
-  color: var(--tinta-fraca);
+.texto-2 {
+  color: var(--texto-2);
 }
-.texto-medio {
-  color: var(--tinta-media);
+.texto-3 {
+  color: var(--texto-3);
 }
 .texto-p {
   font-size: 0.875rem;
@@ -364,37 +517,70 @@ textarea {
 .mono {
   font-family: var(--mono);
 }
-.serifa {
-  font-family: var(--serifa);
-}
 .centro {
   text-align: center;
 }
+.forte {
+  font-weight: 600;
+}
 
 .preco {
-  font-family: var(--serifa);
-  font-weight: 600;
-  color: var(--marca);
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .divisor {
   height: 1px;
-  background: var(--linha);
+  background: var(--borda);
   border: 0;
   margin: 0;
 }
 
 .vazio {
-  padding: 56px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 72px 28px;
   text-align: center;
-  color: var(--tinta-fraca);
-  border: 1px dashed var(--linha-forte);
-  border-radius: var(--raio);
+  color: var(--texto-3);
+  background: var(--superficie);
+  border-radius: var(--r);
+  box-shadow: var(--sombra-1);
+}
+
+.vazio-icone {
+  font-size: 2rem;
+  opacity: 0.5;
 }
 
 .carregando {
-  padding: 40px;
+  padding: 64px;
   text-align: center;
-  color: var(--tinta-fraca);
+  color: var(--texto-3);
   font-size: 0.9rem;
+}
+
+/* Esqueleto de carregamento: evita o salto de layout quando o conteúdo chega. */
+.esqueleto {
+  background: linear-gradient(90deg, var(--borda) 25%, var(--superficie-2) 50%, var(--borda) 75%);
+  background-size: 200% 100%;
+  animation: brilho 1.4s ease-in-out infinite;
+  border-radius: var(--r-sm);
+}
+
+@keyframes brilho {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

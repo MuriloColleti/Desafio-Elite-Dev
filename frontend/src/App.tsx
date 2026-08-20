@@ -4,6 +4,7 @@ import { ProvedorSessao } from './auth/Sessao'
 import { Layout } from './componentes/Layout'
 import { Protegida } from './componentes/Protegida'
 import { Checkout } from './telas/Checkout'
+import { CriarConta } from './telas/CriarConta'
 import { DetalheEvento } from './telas/DetalheEvento'
 import { Entrar } from './telas/Entrar'
 import { IngressoPublico } from './telas/IngressoPublico'
@@ -19,10 +20,14 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
-            {/* Público */}
+            {/* Público. A vitrine tem duas abas e a escolhida vive na URL,
+                então o link de uma aba é compartilhável. */}
             <Route path="/" element={<Vitrine />} />
+            <Route path="/shows" element={<Vitrine />} />
+            <Route path="/cinema" element={<Vitrine />} />
             <Route path="/eventos/:id" element={<DetalheEvento />} />
             <Route path="/entrar" element={<Entrar />} />
+            <Route path="/criar-conta" element={<CriarConta />} />
             {/* Link de compartilhamento: curto de propósito, é feito para ser
                 colado em conversa. */}
             <Route path="/i/:token" element={<IngressoPublico />} />

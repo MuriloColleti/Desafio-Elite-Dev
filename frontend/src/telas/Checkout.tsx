@@ -96,7 +96,7 @@ export function Checkout() {
             ✕
           </span>
           <h1>{codigoErro === 'PAYMENT_DECLINED' ? 'Pagamento recusado' : 'Reserva encerrada'}</h1>
-          <p className="texto-medio" style={{ margin: 0 }}>
+          <p className="texto-2" style={{ margin: 0 }}>
             {erro}
           </p>
         </div>
@@ -118,7 +118,7 @@ export function Checkout() {
       <div className="pilha pilha-24">
         <div className="pilha pilha-8">
           <h1>Pagamento</h1>
-          <p className="texto-medio texto-p" style={{ margin: 0 }}>
+          <p className="texto-2 texto-p" style={{ margin: 0 }}>
             Cobrança simulada — nenhum valor é movimentado de verdade.
           </p>
         </div>
@@ -177,7 +177,7 @@ export function Checkout() {
         </form>
 
         <div className="cartoes-teste">
-          <p className="texto-pp texto-fraco" style={{ margin: '0 0 8px' }}>
+          <p className="texto-pp texto-3" style={{ margin: '0 0 8px' }}>
             Cartões de teste — clique para preencher:
           </p>
           <div className="linha-flex" style={{ flexWrap: 'wrap', gap: 8 }}>

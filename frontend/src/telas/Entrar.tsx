@@ -14,10 +14,10 @@ import { ApiError } from '../lib/api'
 import { mensagemDeErro } from '../lib/formato'
 
 const CONTAS_SEED = [
-  { email: 'organizador@palco.dev', papel: 'Organizador', descricao: 'cria e gerencia eventos' },
-  { email: 'ana@palco.dev', papel: 'Cliente', descricao: 'já tem ingressos' },
-  { email: 'bruno@palco.dev', papel: 'Cliente', descricao: 'sem ingresso, para comprar' },
-  { email: 'portaria@palco.dev', papel: 'Portaria', descricao: 'valida na entrada' },
+  { email: 'bruno@palco.dev', papel: 'Cliente', icone: '🎟', descricao: 'sem ingresso — compre um' },
+  { email: 'ana@palco.dev', papel: 'Cliente', icone: '🎟', descricao: 'já tem 3 ingressos' },
+  { email: 'organizador@palco.dev', papel: 'Organizador', icone: '🎬', descricao: 'cria e publica eventos' },
+  { email: 'portaria@palco.dev', papel: 'Portaria', icone: '🎫', descricao: 'valida na entrada' },
 ]
 
 export function Entrar() {
@@ -61,7 +61,7 @@ export function Entrar() {
       <form className="pilha pilha-16 entrar-form" onSubmit={submeter}>
         <div className="pilha pilha-8">
           <h1>Entrar</h1>
-          <p className="texto-medio texto-p" style={{ margin: 0 }}>
+          <p className="texto-2 texto-p" style={{ margin: 0 }}>
             Acesse para reservar ingressos, gerenciar eventos ou validar entradas.
           </p>
         </div>
@@ -98,10 +98,8 @@ export function Entrar() {
       </form>
 
       <aside className="entrar-contas">
-        <h2 className="texto-p" style={{ fontFamily: 'var(--sans)', fontWeight: 700 }}>
-          Contas de demonstração
-        </h2>
-        <p className="texto-pp texto-fraco" style={{ marginTop: 0 }}>
+        <h3>Contas de demonstração</h3>
+        <p className="texto-pp texto-3" style={{ marginTop: 0 }}>
           Senha <code className="mono">senha123</code> para todas. Clique para preencher.
         </p>
 
@@ -109,9 +107,13 @@ export function Entrar() {
           {CONTAS_SEED.map((c) => (
             <li key={c.email}>
               <button type="button" className="conta-seed" onClick={() => preencher(c.email)}>
-                <span className="conta-papel">{c.papel}</span>
-                <span className="mono texto-pp">{c.email}</span>
-                <span className="texto-pp texto-fraco">{c.descricao}</span>
+                <span className="conta-avatar" aria-hidden="true">
+                  {c.icone}
+                </span>
+                <span className="pilha pilha-4" style={{ minWidth: 0 }}>
+                  <span className="texto-p forte">{c.papel}</span>
+                  <span className="texto-pp texto-3">{c.descricao}</span>
+                </span>
               </button>
             </li>
           ))}

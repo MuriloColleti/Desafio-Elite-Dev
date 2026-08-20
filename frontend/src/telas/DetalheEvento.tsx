@@ -114,35 +114,46 @@ export function DetalheEvento() {
       </Link>
 
       <div className="evento-topo">
-        {evento.poster_url && (
+        {evento.poster_url ? (
           <img className="evento-poster" src={evento.poster_url} alt={`Pôster de ${evento.title}`} />
+        ) : (
+          <div className="evento-poster-vazio">{evento.title}</div>
         )}
 
         <div className="pilha pilha-16">
           <div className="pilha pilha-8">
-            <span className="etiqueta etiqueta-publicado">
-              {evento.layout === 'SEATED' ? 'Lugar marcado' : 'Pista'}
+            <span className="etiqueta etiqueta-marca">
+              {evento.layout === 'SEATED' ? '🎬 Lugar marcado' : '🎸 Pista'}
             </span>
             <h1>{evento.title}</h1>
           </div>
 
           <dl className="evento-dados">
-            <div>
-              <dt>Quando</dt>
-              <dd>{dataHoraLonga(evento.starts_at)}</dd>
+            <div className="dado-pilula">
+              <span className="dado-pilula-icone" aria-hidden="true">🗓</span>
+              <div>
+                <dt>Quando</dt>
+                <dd>{dataHoraLonga(evento.starts_at)}</dd>
+              </div>
             </div>
-            <div>
-              <dt>Onde</dt>
-              <dd>{evento.venue}</dd>
+            <div className="dado-pilula">
+              <span className="dado-pilula-icone" aria-hidden="true">📍</span>
+              <div>
+                <dt>Onde</dt>
+                <dd>{evento.venue}</dd>
+              </div>
             </div>
-            <div>
-              <dt>Ingresso</dt>
-              <dd className="preco">{moeda(evento.price_cents)}</dd>
+            <div className="dado-pilula">
+              <span className="dado-pilula-icone" aria-hidden="true">🎟</span>
+              <div>
+                <dt>Ingresso</dt>
+                <dd>{moeda(evento.price_cents)}</dd>
+              </div>
             </div>
           </dl>
 
           {evento.synopsis && (
-            <p className="texto-medio" style={{ margin: 0, maxWidth: '60ch' }}>
+            <p className="texto-2" style={{ margin: 0, maxWidth: '60ch' }}>
               {evento.synopsis}
             </p>
           )}
@@ -172,26 +183,26 @@ export function DetalheEvento() {
               <div className="quantidade">
                 <button
                   type="button"
-                  className="btn btn-secundario"
+                  className="qtd-btn"
                   onClick={() => setQuantidade((q) => Math.max(1, q - 1))}
                   disabled={quantidade <= 1}
                   aria-label="Diminuir"
                 >
                   −
                 </button>
-                <span className="quantidade-valor serifa" aria-live="polite">
+                <span className="quantidade-valor" aria-live="polite">
                   {quantidade}
                 </span>
                 <button
                   type="button"
-                  className="btn btn-secundario"
+                  className="qtd-btn"
                   onClick={() => setQuantidade((q) => Math.min(maxPorCompra, q + 1))}
                   disabled={quantidade >= maxPorCompra}
                   aria-label="Aumentar"
                 >
                   +
                 </button>
-                <span className="texto-pp texto-fraco">
+                <span className="texto-pp texto-3">
                   {maxPorCompra < 10
                     ? `${maxPorCompra} restantes`
                     : 'até 10 ingressos por compra'}
@@ -203,13 +214,11 @@ export function DetalheEvento() {
           {/* Resumo fixo: o total tem de estar visível junto do botão, sem
               precisar rolar de volta ao preço. */}
           <aside className="resumo">
-            <h3 className="texto-p" style={{ fontFamily: 'var(--sans)' }}>
-              Resumo
-            </h3>
+            <h3>Resumo</h3>
             <hr className="divisor" />
 
             <div className="linha-flex entre texto-p">
-              <span className="texto-medio">
+              <span className="texto-2">
                 {evento.layout === 'SEATED'
                   ? assento
                     ? `Assento ${assento}`
@@ -221,21 +230,21 @@ export function DetalheEvento() {
 
             <div className="linha-flex entre">
               <strong>Total</strong>
-              <strong className="preco" style={{ fontSize: '1.25rem' }}>
+              <strong className="preco" style={{ fontSize: '1.45rem' }}>
                 {moeda(total)}
               </strong>
             </div>
 
             <button
               type="button"
-              className="btn btn-principal btn-largo"
+              className="btn btn-principal btn-largo btn-grande"
               onClick={reservar}
               disabled={!podeReservar || reservando}
             >
               {reservando ? 'Reservando…' : usuario ? 'Reservar' : 'Entrar e reservar'}
             </button>
 
-            <p className="texto-pp texto-fraco" style={{ margin: 0 }}>
+            <p className="texto-pp texto-3" style={{ margin: 0 }}>
               O lugar fica reservado por 10 minutos para você concluir o pagamento.
             </p>
           </aside>

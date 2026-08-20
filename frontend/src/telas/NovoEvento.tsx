@@ -103,7 +103,7 @@ export function NovoEvento() {
     <div className="pilha pilha-24">
       <div className="pilha pilha-8">
         <h1>Criar evento</h1>
-        <p className="texto-medio texto-p" style={{ margin: 0 }}>
+        <p className="texto-2 texto-p" style={{ margin: 0 }}>
           Escolha um filme ou show do catálogo e defina a sessão.
         </p>
       </div>
@@ -119,18 +119,18 @@ export function NovoEvento() {
 
       {/* Passo 1 — a obra */}
       <section className="pilha pilha-16">
-        <h2 className="texto-p" style={{ fontFamily: 'var(--sans)', fontWeight: 700 }}>
-          1. O que vai acontecer
+        <h2 className="passo-titulo">
+          <span className="passo-numero">1</span> O que vai acontecer
         </h2>
 
         {escolhido ? (
           <div className="escolhido">
             {escolhido.poster_url && <img src={escolhido.poster_url} alt="" />}
             <div className="pilha pilha-8">
-              <strong className="serifa" style={{ fontSize: '1.2rem' }}>
+              <strong style={{ fontSize: '1.15rem' }}>
                 {escolhido.title}
               </strong>
-              <span className="texto-pp texto-fraco">
+              <span className="texto-pp texto-3">
                 {escolhido.source === 'tmdb' ? 'Filme (TMDb)' : 'Show (Ticketmaster)'}
               </span>
               <button type="button" className="btn-texto texto-pp" onClick={() => setEscolhido(null)}>
@@ -151,7 +151,7 @@ export function NovoEvento() {
               />
             </div>
 
-            {buscando && <p className="texto-pp texto-fraco">Buscando…</p>}
+            {buscando && <p className="texto-pp texto-3">Buscando…</p>}
 
             <ul className="catalogo-lista">
               {itens.map((i) => (
@@ -164,7 +164,7 @@ export function NovoEvento() {
                     )}
                     <span className="pilha pilha-8" style={{ textAlign: 'left' }}>
                       <strong className="texto-p">{i.title}</strong>
-                      <span className="texto-pp texto-fraco">
+                      <span className="texto-pp texto-3">
                         {i.source === 'tmdb' ? 'Filme' : 'Show'}
                         {i.suggested_venue ? ` · ${i.suggested_venue}` : ''}
                       </span>
@@ -175,7 +175,7 @@ export function NovoEvento() {
             </ul>
 
             {!buscando && itens.length === 0 && termo && (
-              <p className="texto-p texto-fraco">Nada encontrado para “{termo}”.</p>
+              <p className="texto-p texto-3">Nada encontrado para “{termo}”.</p>
             )}
           </>
         )}
@@ -184,8 +184,8 @@ export function NovoEvento() {
       {/* Passo 2 — a sessão */}
       {escolhido && (
         <form className="pilha pilha-16" onSubmit={salvar}>
-          <h2 className="texto-p" style={{ fontFamily: 'var(--sans)', fontWeight: 700 }}>
-            2. Quando, onde e quanto
+          <h2 className="passo-titulo">
+            <span className="passo-numero">2</span> Quando, onde e quanto
           </h2>
 
           <div className="grade-form">

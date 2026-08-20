@@ -28,7 +28,7 @@ export function CartaoIngresso({ ingresso }: { ingresso: Ingresso }) {
         <div className="linha-flex entre" style={{ alignItems: 'flex-start' }}>
           <div className="pilha pilha-8">
             <h2 className="bilhete-titulo">{ingresso.event_title}</h2>
-            <p className="texto-p texto-medio" style={{ margin: 0 }}>
+            <p className="texto-p texto-2" style={{ margin: 0 }}>
               {dataHoraLonga(ingresso.event_starts_at)}
               <br />
               {ingresso.event_venue}
@@ -44,7 +44,7 @@ export function CartaoIngresso({ ingresso }: { ingresso: Ingresso }) {
         <dl className="bilhete-dados">
           <div>
             <dt>{ingresso.seat_label ? 'Assento' : 'Ingressos'}</dt>
-            <dd className="serifa" style={{ fontSize: '1.35rem' }}>
+            <dd className="bilhete-destaque">
               {ingresso.seat_label ?? `${ingresso.quantity}×`}
             </dd>
           </div>
@@ -64,7 +64,7 @@ export function CartaoIngresso({ ingresso }: { ingresso: Ingresso }) {
           <button type="button" className="btn btn-secundario texto-p" onClick={copiarLink}>
             {copiado ? 'Link copiado' : 'Compartilhar'}
           </button>
-          <span className="texto-pp texto-fraco">
+          <span className="texto-pp texto-3">
             Quem abrir o link vê o ingresso, mas não pode usá-lo para entrar.
           </span>
         </div>

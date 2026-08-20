@@ -111,7 +111,7 @@ export function PainelOrganizador() {
                   <td>
                     <strong>{e.title}</strong>
                     <br />
-                    <span className="texto-pp texto-fraco">{e.venue}</span>
+                    <span className="texto-pp texto-3">{e.venue}</span>
                   </td>
                   <td className="texto-p">{dataHora(e.starts_at)}</td>
                   <td className="texto-p">{e.layout === 'SEATED' ? 'Assento' : 'Pista'}</td>
@@ -125,7 +125,7 @@ export function PainelOrganizador() {
                         style={{ width: `${(vendidos / e.capacity) * 100}%` }}
                       />
                     </div>
-                    <span className="texto-pp texto-fraco">
+                    <span className="texto-pp texto-3">
                       {vendidos}/{e.capacity}
                     </span>
                   </td>

@@ -15,10 +15,18 @@ import type { ReactNode } from 'react'
 import { ApiError, api } from '../lib/api'
 import type { Papel, Usuario } from '../lib/tipos'
 
+type DadosRegistro = {
+  nome: string
+  email: string
+  senha: string
+  papel: 'CUSTOMER' | 'ORGANIZER'
+}
+
 type Contexto = {
   usuario: Usuario | null
   carregando: boolean
   entrar: (email: string, senha: string) => Promise<Usuario>
+  registrar: (dados: DadosRegistro) => Promise<Usuario>
   sair: () => Promise<void>
 }
 
@@ -46,6 +54,20 @@ export function ProvedorSessao({ children }: { children: ReactNode }) {
     return eu
   }, [])
 
+  const registrar = useCallback(async (dados: DadosRegistro) => {
+    // O back-end já devolve a sessão pronta no registro; relemos /auth/me por
+    // coerência com o login, para haver um só formato de usuário no app.
+    await api.post('/auth/register', {
+      name: dados.nome,
+      email: dados.email,
+      password: dados.senha,
+      role: dados.papel,
+    })
+    const eu = await api.get<Usuario>('/auth/me')
+    setUsuario(eu)
+    return eu
+  }, [])
+
   const sair = useCallback(async () => {
     try {
       await api.post('/auth/logout')
@@ -58,7 +80,7 @@ export function ProvedorSessao({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <SessaoContext.Provider value={{ usuario, carregando, entrar, sair }}>
+    <SessaoContext.Provider value={{ usuario, carregando, entrar, registrar, sair }}>
       {children}
     </SessaoContext.Provider>
   )

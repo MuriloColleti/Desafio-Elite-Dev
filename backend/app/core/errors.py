@@ -44,6 +44,20 @@ class NotAuthenticated(AppError):
     message = "Sessão ausente ou expirada."
 
 
+class EmailInUse(AppError):
+    """E-mail já cadastrado.
+
+    Diferente do login, aqui **confirmamos** que o e-mail existe: sem isso a
+    pessoa não teria como saber por que o cadastro falhou. O trade-off é
+    aceitável porque a informação já é obtida por tentativa de cadastro em
+    qualquer serviço, e a alternativa é uma tela sem explicação.
+    """
+
+    code = "EMAIL_IN_USE"
+    status_code = status.HTTP_409_CONFLICT
+    message = "Este e-mail já está cadastrado."
+
+
 class Forbidden(AppError):
     code = "FORBIDDEN"
     status_code = status.HTTP_403_FORBIDDEN

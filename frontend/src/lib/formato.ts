@@ -57,6 +57,7 @@ export function mensagemDeErro(codigo: string, fallback: string): string {
     RESERVATION_EXPIRED: 'O tempo para concluir a reserva expirou. Escolha o lugar de novo.',
     PAYMENT_DECLINED: 'Pagamento recusado.',
     NOT_FOUND: 'Não encontramos o que você procura.',
+    EMAIL_IN_USE: 'Este e-mail já tem conta. Tente entrar.',
   }
   return mapa[codigo] ?? fallback
 }

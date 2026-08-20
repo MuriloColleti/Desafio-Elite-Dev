@@ -6,8 +6,8 @@ forma simulada e recebe um ingresso com QR, e a **portaria** valida esse ingress
 
 > **Status:** o fluxo do enunciado funciona **ponta a ponta** — vitrine, criação de evento a partir
 > do catálogo, reserva com mapa de assentos ou pista, pagamento simulado com recusa, ingresso com
-> QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 193 testes;
-> front-end com 14. O que falta está em [Status de implementação](#status-de-implementação) —
+> QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 209 testes;
+> front-end com 24. O que falta está em [Status de implementação](#status-de-implementação) —
 > principalmente cobertura de testes do front e o deploy.
 
 ---
@@ -515,6 +515,7 @@ divergiriam e o mapa deixaria de fechar com o total de ingressos.
 Documentação interativa (OpenAPI) em **http://localhost:8000/docs** com o servidor de pé.
 
 ```
+POST   /auth/register                 → cria conta (CUSTOMER ou ORGANIZER) e abre sessão
 POST   /auth/login                    → abre sessão (cookie httponly + session_id no corpo)
 POST   /auth/logout                   → encerra a sessão no servidor
 GET    /auth/me                       → usuário atual
@@ -721,8 +722,8 @@ de que já esteja pronto.
 | Front-end: vitrine, reserva, checkout, ingressos | ✅ pronto      |
 | Front-end: portaria e painel do organizador    | ✅ pronto       |
 | Leitura do QR pela câmera                      | ✅ pronto       |
-| Testes do back-end (193)                       | ✅ pronto       |
-| Testes do front-end (14)                       | 🟡 parcial      |
+| Testes do back-end (209)                       | ✅ pronto       |
+| Testes do front-end (24)                       | 🟡 parcial      |
 | Docker Compose (um comando)                    | ✅ pronto       |
 | Configuração de deploy (Render + Vercel)       | ✅ pronto       |
 | Deploy público publicado                       | 🔜 pendente     |
@@ -733,6 +734,12 @@ de que já esteja pronto.
   gatilhos de aprovação/recusa, não validam nada.
 - A leitura do QR pela câmera exige HTTPS ou `localhost` — restrição do navegador, não da
   aplicação. Em outro host sem TLS, use a digitação manual do código.
+- **O registro público permite escolher o papel de organizador.** Qualquer pessoa que se cadastre
+  pode publicar eventos, sem validação de contrato ou identidade. É deliberado para o avaliador
+  conseguir criar o próprio organizador e percorrer o fluxo de publicação sem depender do seed.
+  Num sistema real esse papel viria de aprovação — e é por isso que **portaria não está na tela
+  de cadastro**: é conta operacional da casa de espetáculo, e quem pudesse criá-la validaria
+  ingressos de eventos alheios. O back-end recusa `role=GATE` no registro com 422.
 - **O sistema não representa a sala física.** A unicidade do assento é do par `(event_id,
   seat_label)`, então o mesmo rótulo `C1` em dois eventos distintos são assentos distintos — o que é
   o comportamento correto tanto para duas salas diferentes quanto para duas sessões da mesma sala no
