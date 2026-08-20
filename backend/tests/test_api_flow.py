@@ -25,7 +25,10 @@ def test_vitrine_dispensa_autenticacao(app_semeado):
     r = clientes["anon"].get("/events")
 
     assert r.status_code == 200
-    assert len(r.json()) == 2
+    # Quantidade não é afirmada: o seed cresce, e um teste que trava o número
+    # vira manutenção sem valor. O que importa é a vitrine responder com
+    # eventos a quem não fez login.
+    assert len(r.json()) > 0
 
 
 def test_vitrine_traz_data_local_e_preco(app_semeado):
@@ -71,7 +74,9 @@ def test_busca_por_local(app_semeado):
 def test_filtro_por_layout(app_semeado):
     clientes, _ = app_semeado
     r = clientes["anon"].get("/events?layout=GENERAL").json()
-    assert len(r) == 1 and r[0]["layout"] == "GENERAL"
+
+    assert r, "o seed deveria ter evento de pista"
+    assert all(e["layout"] == "GENERAL" for e in r)
 
 
 def test_rascunho_responde_404_nao_403(app_semeado):

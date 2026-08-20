@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { CardEvento } from '../componentes/CardEvento'
+import { Destaques } from '../componentes/Destaques'
 import { ApiError, api } from '../lib/api'
 import { mensagemDeErro } from '../lib/formato'
 import type { Evento } from '../lib/tipos'
@@ -93,8 +94,14 @@ export function Vitrine() {
     navegar((nova === 'cinema' ? '/' : '/shows') + qs)
   }
 
+  // Os destaques só aparecem na navegação livre: com busca ativa, quem procura
+  // algo específico não quer uma parede de cartazes na frente do resultado.
+  const destaques = busca.trim() ? [] : eventos.slice(0, 8)
+
   return (
     <div className="pilha pilha-32">
+      {destaques.length > 0 && <Destaques eventos={destaques} />}
+
       <header className="vitrine-cabeca">
         <h1>O que você vai ver hoje?</h1>
         <p className="texto-2">

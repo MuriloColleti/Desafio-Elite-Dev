@@ -42,6 +42,16 @@ const FILMES = [
 ]
 const SHOWS = [evento({ title: 'Baile do Terreiro', layout: 'GENERAL', venue: 'Circo Voador' })]
 
+/** Busca o título na **grade**, não no carrossel: o mesmo evento aparece nos
+ *  dois, e a grade é o que a aba filtra. */
+function naGrade(titulo: string): HTMLElement | null {
+  const grade = document.querySelector('.grade-eventos')
+  if (!grade) return null
+  return (
+    Array.from(grade.querySelectorAll('h3')).find((h) => h.textContent === titulo) ?? null
+  )
+}
+
 function montar(rota = '/') {
   return render(
     <MemoryRouter initialEntries={[rota]}>
@@ -62,23 +72,23 @@ describe('Vitrine', () => {
   it('abre na aba de cinema', async () => {
     montar('/')
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Parasita' })).toBeInTheDocument())
+    await waitFor(() => expect(naGrade('Parasita')).not.toBeNull())
     expect(screen.getByRole('tab', { name: /Cinema/ })).toHaveAttribute('aria-selected', 'true')
   })
 
   it('mostra apenas filmes na aba de cinema', async () => {
     montar('/')
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Parasita' })).toBeInTheDocument())
-    expect(screen.getByRole('heading', { name: 'O Grande Truque' })).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Baile do Terreiro' })).not.toBeInTheDocument()
+    await waitFor(() => expect(naGrade('Parasita')).not.toBeNull())
+    expect(naGrade('O Grande Truque')).not.toBeNull()
+    expect(naGrade('Baile do Terreiro')).toBeNull()
   })
 
   it('mostra apenas shows na aba de shows', async () => {
     montar('/shows')
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Baile do Terreiro' })).toBeInTheDocument())
-    expect(screen.queryByRole('heading', { name: 'Parasita' })).not.toBeInTheDocument()
+    await waitFor(() => expect(naGrade('Baile do Terreiro')).not.toBeNull())
+    expect(naGrade('Parasita')).toBeNull()
   })
 
   it('conta os eventos de cada aba', async () => {
@@ -93,12 +103,12 @@ describe('Vitrine', () => {
 
   it('troca de aba ao clicar', async () => {
     montar('/')
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Parasita' })).toBeInTheDocument())
+    await waitFor(() => expect(naGrade('Parasita')).not.toBeNull())
 
     await userEvent.click(screen.getByRole('tab', { name: /Shows/ }))
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Baile do Terreiro' })).toBeInTheDocument())
-    expect(screen.queryByRole('heading', { name: 'Parasita' })).not.toBeInTheDocument()
+    await waitFor(() => expect(naGrade('Baile do Terreiro')).not.toBeNull())
+    expect(naGrade('Parasita')).toBeNull()
   })
 
   it('oferece a outra aba quando a atual está vazia', async () => {

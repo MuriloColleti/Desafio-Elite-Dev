@@ -23,8 +23,13 @@ def sem_chaves(monkeypatch):
 
 
 def test_offline_usa_fixtures(redis_fake, sem_chaves):
-    itens = asyncio.run(catalog.search(""))
-    assert len(itens) == 8
+    from app.providers import fixtures
+
+    itens = asyncio.run(catalog.search("", limit=99))
+
+    # Compara com as fixtures em vez de um número fixo: o catálogo de exemplo
+    # cresce, e travar a contagem só cria manutenção.
+    assert len(itens) == len(fixtures.FIXTURES)
 
 
 def test_offline_busca_por_titulo(redis_fake, sem_chaves):

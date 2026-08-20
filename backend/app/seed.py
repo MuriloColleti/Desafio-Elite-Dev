@@ -37,6 +37,8 @@ from app.models.enums import (
     Role,
     TicketStatus,
 )
+from app.providers import fixtures
+from app.providers.base import CatalogSource
 
 SENHA = "senha123"
 
@@ -100,62 +102,108 @@ def povoar(db: Session) -> dict[str, str]:
     db.flush()
 
     # --- Eventos ---
-    # Datas relativas: o seed não envelhece. Um evento com data fixa vira
-    # "evento passado" algumas semanas depois e a vitrine aparece vazia.
-    cinema = Event(
-        organizer_id=organizador.id,
-        catalog_ref="tmdb:movie:496243",
-        title="Parasita",
-        synopsis=(
-            "Toda a família de Ki-taek está desempregada e vivendo num porão sujo e "
-            "apertado. Uma obra do destino faz com que o filho comece a dar aulas de "
-            "reforço para a filha de uma família rica."
-        ),
-        poster_url="https://image.tmdb.org/t/p/w500/igw938inb6Fy0YVcwIyxQ7Lu5FO.jpg",
-        venue="Cine Belas Artes — Sala 1",
-        starts_at=_agora() + timedelta(days=3, hours=4),
-        layout=EventLayout.SEATED,
-        seat_rows=8,
-        seats_per_row=12,
-        capacity=96,
-        price_cents=3200,
-        status=EventStatus.PUBLISHED,
-    )
-    show = Event(
-        organizer_id=organizador.id,
-        catalog_ref="ticketmaster:event:demo-baile",
-        title="Baile do Terreiro — Edição Verão",
-        synopsis="Samba de raiz e partido-alto até o amanhecer, com participações especiais.",
-        poster_url=None,
-        venue="Circo Voador, Rio de Janeiro",
-        starts_at=_agora() + timedelta(days=12),
-        layout=EventLayout.GENERAL,
-        capacity=500,
-        price_cents=9000,
-        status=EventStatus.PUBLISHED,
-    )
+    # Derivados das fixtures do catálogo: título, sinopse e pôster vêm de lá, e
+    # não duplicados aqui. Duas cópias do mesmo pôster divergiriam na primeira
+    # correção — já aconteceu neste arquivo.
+    #
+    # Datas relativas ao momento da execução: com data fixa o seed envelhece e
+    # a vitrine aparece vazia semanas depois.
+    filmes = [i for i in fixtures.FIXTURES if i.source is CatalogSource.TMDB]
+    shows = [i for i in fixtures.FIXTURES if i.source is CatalogSource.TICKETMASTER]
+
+    def evento_de(
+        item,
+        *,
+        venue: str,
+        dias: float,
+        preco: int,
+        layout: EventLayout,
+        status: EventStatus = EventStatus.PUBLISHED,
+        fileiras: int | None = None,
+        por_fileira: int | None = None,
+        capacidade: int | None = None,
+    ) -> Event:
+        return Event(
+            organizer_id=organizador.id,
+            catalog_ref=item.ref,
+            title=item.title,
+            synopsis=item.synopsis,
+            poster_url=item.poster_url,
+            venue=venue,
+            starts_at=_agora() + timedelta(days=dias),
+            layout=layout,
+            seat_rows=fileiras,
+            seats_per_row=por_fileira,
+            # Assento marcado deriva a capacidade do mapa; pista informa direto.
+            capacity=(fileiras * por_fileira) if fileiras and por_fileira else (capacidade or 0),
+            price_cents=preco,
+            status=status,
+        )
+
+    # Salas variadas de propósito: mapas de tamanhos diferentes mostram que o
+    # layout não é fixo, e preços distintos deixam a vitrine menos monótona.
+    SESSOES = [
+        ("Cine Belas Artes — Sala 1", 3.2, 3200, 8, 12),
+        ("Cine Belas Artes — Sala 2", 4.8, 2800, 6, 10),
+        ("Espaço Itaú — Sala 3", 6.1, 3600, 7, 14),
+        ("Cinemateca — Sala Grande", 8.4, 2400, 9, 12),
+        ("Cine Odeon — Sala 1", 10.3, 4200, 6, 12),
+        ("Reserva Cultural — Sala 2", 12.6, 3000, 5, 10),
+        ("Cine Joia — Sala Panorâmica", 15.2, 4800, 8, 10),
+        ("Petra Belas Artes — Sala 4", 18.5, 2600, 7, 12),
+    ]
+
+    eventos_cinema = [
+        evento_de(
+            item,
+            venue=sala,
+            dias=dias,
+            preco=preco,
+            layout=EventLayout.SEATED,
+            fileiras=fileiras,
+            por_fileira=por_fileira,
+        )
+        for item, (sala, dias, preco, fileiras, por_fileira) in zip(filmes, SESSOES, strict=False)
+    ]
+
+    PISTAS = [
+        (11.5, 9000, 500),
+        (16.8, 12000, 800),
+        (21.4, 7500, 350),
+        (26.7, 6000, 250),
+    ]
+
+    eventos_show = [
+        evento_de(
+            item,
+            venue=item.suggested_venue or "Local a definir",
+            dias=dias,
+            preco=preco,
+            layout=EventLayout.GENERAL,
+            capacidade=cap,
+        )
+        for item, (dias, preco, cap) in zip(shows, PISTAS, strict=False)
+    ]
+
     # Rascunho: o painel do organizador precisa mostrar estado misto, senão não
     # se vê a diferença entre publicar e não publicar.
-    rascunho = Event(
-        organizer_id=organizador.id,
-        catalog_ref="tmdb:movie:1124",
-        title="O Grande Truque",
-        synopsis=(
-            "Dois mágicos rivais no Londres do início do século XX travam uma disputa "
-            "obsessiva para criar a ilusão definitiva."
-        ),
-        poster_url="https://image.tmdb.org/t/p/w500/bdN3gXuIZYaJP7ftKK2sU0nPtEA.jpg",
-        venue="Cine Belas Artes — Sala 2",
-        starts_at=_agora() + timedelta(days=20, hours=2),
+    rascunho = evento_de(
+        filmes[-1],
+        venue="Cine Belas Artes — Sala 5",
+        dias=30,
+        preco=3400,
         layout=EventLayout.SEATED,
-        seat_rows=6,
-        seats_per_row=10,
-        capacity=60,
-        price_cents=2800,
         status=EventStatus.DRAFT,
+        fileiras=6,
+        por_fileira=10,
     )
-    db.add_all([cinema, show, rascunho])
+
+    db.add_all([*eventos_cinema, *eventos_show, rascunho])
     db.flush()
+
+    # O primeiro filme e o primeiro show são os usados no roteiro de avaliação.
+    cinema = eventos_cinema[0]
+    show = eventos_show[0]
 
     # A portaria valida a entrada de um evento específico — é o que permite
     # responder "evento errado" em vez de aceitar qualquer ingresso legítimo.

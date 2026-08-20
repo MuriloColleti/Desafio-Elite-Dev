@@ -218,7 +218,7 @@ def test_busca_offline_e_case_insensitive():
 
 
 def test_busca_offline_sem_termo_devolve_tudo():
-    assert len(fixtures.buscar("")) == len(fixtures.FIXTURES)
+    assert len(fixtures.buscar("", limit=99)) == len(fixtures.FIXTURES)
 
 
 def test_busca_offline_respeita_limite():
