@@ -2,8 +2,10 @@
 
 from functools import lru_cache
 
-from pydantic import Field, computed_field
+from pydantic import Field, computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+SEGREDO_PADRAO = "trocar-em-producao"
 
 
 class Settings(BaseSettings):
@@ -38,12 +40,16 @@ class Settings(BaseSettings):
     session_absolute_ttl_seconds: int = 60 * 60 * 24 * 7  # 7 dias no máximo
     session_cookie_name: str = "palco_session"
     session_cookie_secure: bool = False  # True em produção (HTTPS)
+    # "lax" em desenvolvimento (mesma origem). Em produção o front e a API
+    # ficam em domínios diferentes, e aí o navegador só envia o cookie com
+    # "none" — que por sua vez exige Secure, logo HTTPS.
+    session_cookie_samesite: str = "lax"
 
     # --- Ingresso ---
     # Segredo do HMAC do QR. Diferente da sessão: aqui o código viaja fora do
     # nosso controle (impresso, print de tela), então precisa ser verificável
     # por assinatura.
-    ticket_hmac_secret: str = "trocar-em-producao"
+    ticket_hmac_secret: str = SEGREDO_PADRAO
 
     # --- Regras de negócio ---
     reservation_ttl_minutes: int = 10
@@ -53,6 +59,33 @@ class Settings(BaseSettings):
     tmdb_api_key: str | None = None
     ticketmaster_api_key: str | None = None
     catalog_cache_ttl_seconds: int = 60 * 15
+
+    @model_validator(mode="after")
+    def _conferir_producao(self) -> "Settings":
+        """Falha no boot se produção estiver mal configurada.
+
+        Um `TICKET_HMAC_SECRET` previsível torna o QR forjável — qualquer pessoa
+        assinaria um ingresso válido. Vale mais não subir do que subir inseguro.
+
+        `session_cookie_secure` é o sinal de "estou em produção": ele só é
+        ligado quando há HTTPS, que é justamente o cenário de deploy.
+        """
+        # Esta checagem vem primeiro porque vale em qualquer ambiente: o
+        # navegador rejeita SameSite=None sem Secure, e a sessão simplesmente
+        # não persistiria — falha silenciosa, difícil de diagnosticar.
+        if self.session_cookie_samesite.lower() == "none" and not self.session_cookie_secure:
+            raise ValueError("SESSION_COOKIE_SAMESITE=none exige SESSION_COOKIE_SECURE=true.")
+
+        if not self.session_cookie_secure:
+            return self
+
+        if self.ticket_hmac_secret == SEGREDO_PADRAO:
+            raise ValueError(
+                "TICKET_HMAC_SECRET está com o valor padrão. Gere um segredo "
+                "com `python -c \"import secrets; print(secrets.token_urlsafe(32))\"`."
+            )
+
+        return self
 
     @computed_field
     @property

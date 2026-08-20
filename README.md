@@ -6,7 +6,7 @@ forma simulada e recebe um ingresso com QR, e a **portaria** valida esse ingress
 
 > **Status:** o fluxo do enunciado funciona **ponta a ponta** — vitrine, criação de evento a partir
 > do catálogo, reserva com mapa de assentos ou pista, pagamento simulado com recusa, ingresso com
-> QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 183 testes;
+> QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 193 testes;
 > front-end com 14. O que falta está em [Status de implementação](#status-de-implementação) —
 > principalmente cobertura de testes do front e o deploy.
 
@@ -27,6 +27,7 @@ forma simulada e recebe um ingresso com QR, e a **portaria** valida esse ingress
 - [Decisões de domínio](#decisões-de-domínio)
 - [API](#api)
 - [Testes](#testes)
+- [Deploy](#deploy)
 - [Uso de IA](#uso-de-ia)
 - [Status de implementação](#status-de-implementação)
 
@@ -164,16 +165,20 @@ Pré-requisitos: **Docker + Docker Compose**, ou então **Python 3.12+**, **Node
 git clone https://github.com/MuriloColleti/Desafio-Elite-Dev.git
 cd Desafio-Elite-Dev
 
-# 1. configure as chaves das APIs externas (ver seção abaixo)
-cp .env.example .env
-#    edite .env e preencha TMDB_API_KEY e TICKETMASTER_API_KEY
-
-# 2. suba tudo (banco + api + web)
 docker compose up --build
+```
 
-# 3. em outro terminal: migrations + dados de teste
-docker compose exec api alembic upgrade head
-docker compose exec api python -m app.seed
+É só isso. O contêiner da API **aplica as migrations e semeia os dados no boot**, então quando o
+log mostrar `→ subindo a API` o ambiente já está pronto para percorrer o fluxo inteiro.
+
+O seed só popula banco vazio: reiniciar ou refazer o deploy não duplica nem apaga o que você criou
+durante o teste.
+
+As chaves das APIs externas são **opcionais** — sem elas o catálogo usa um conjunto local de
+exemplo e todo o resto funciona. Para usar títulos reais:
+
+```bash
+TMDB_API_KEY=sua-chave TICKETMASTER_API_KEY=sua-chave docker compose up --build
 ```
 
 | Serviço      | URL                        |
@@ -587,6 +592,77 @@ casar com a validação do servidor — se divergir, o mapa pede um assento que 
 
 ---
 
+## Deploy
+
+A stack precisa de **duas plataformas**, e isso é escolha, não limitação: FastAPI é um processo de
+longa duração, e rodá-lo como função serverless na Vercel traria cold start de segundos a cada
+requisição parada — além de matar o cache de catálogo em memória do processo, queimando a quota das
+APIs externas. Então o front vai para a Vercel (onde SPA estático é o caso ideal) e a API para o
+Render.
+
+| Peça | Plataforma | Plano | Por quê |
+| ---- | ---------- | ----- | ------- |
+| Front-end | **Vercel** | free | build de SPA nativo, HTTPS automático |
+| API | **Render** | free | processo persistente, Docker, HTTPS automático |
+| PostgreSQL | **Neon** | free | 0,5 GB **sem prazo de validade** |
+| Redis | **Upstash** | free | 10 mil comandos/dia, suficiente para sessão |
+
+O Postgres gratuito **do Render não é usado de propósito**: ele expira em 30 dias, e um avaliador
+que abrisse o link depois disso encontraria a aplicação morta. O Neon não tem essa validade.
+
+### Passo a passo
+
+**1. Banco (Neon)** — crie um projeto em [neon.tech](https://neon.tech), copie a connection string
+e troque o prefixo para o driver que usamos:
+
+```
+postgresql+psycopg://usuario:senha@ep-xxx.neon.tech/palco?sslmode=require
+```
+
+**2. Redis (Upstash)** — crie um banco em [upstash.com](https://upstash.com) e copie a URL
+`rediss://…` (com dois “s”: TLS).
+
+**3. API (Render)** — *New → Blueprint*, aponte para este repositório. O
+[`render.yaml`](render.yaml) já define o serviço; o painel vai pedir `DATABASE_URL`, `REDIS_URL`,
+`CORS_ORIGINS` e `PUBLIC_BASE_URL`. Deixe as duas últimas em branco por ora — você só saberá a URL
+da Vercel no passo 4.
+
+O `TICKET_HMAC_SECRET` é **gerado pelo Render**, não digitado: um segredo previsível torna o QR
+forjável, e a aplicação se recusa a subir com o valor padrão.
+
+Para semear os dados de teste no primeiro deploy, adicione `SEED_ON_BOOT=true`. Pode manter — o
+seed só popula banco vazio.
+
+**4. Front-end (Vercel)** — *Add New → Project*, importe o repositório e configure:
+
+| Campo | Valor |
+| ----- | ----- |
+| Root Directory | `frontend` |
+| Framework | Vite (detectado) |
+| `VITE_API_URL` | `https://palco-api.onrender.com` (a URL do passo 3) |
+
+**5. Feche o círculo** — volte ao Render e preencha `CORS_ORIGINS` e `PUBLIC_BASE_URL` com a URL da
+Vercel. Sem isso o navegador bloqueia as requisições e o link de compartilhamento aponta para
+`localhost`.
+
+### Duas armadilhas que essa topologia tem
+
+**O cookie de sessão precisa de `SameSite=None`.** Com front e API em domínios diferentes, o
+navegador **não envia** um cookie `SameSite=Lax` na requisição — o login funcionaria e toda rota
+autenticada responderia 401. O `render.yaml` já define `SESSION_COOKIE_SAMESITE=none` e
+`SESSION_COOKIE_SECURE=true` (um exige o outro, e ambos exigem HTTPS, que as duas plataformas dão).
+
+**O plano gratuito do Render hiberna.** Após ~15 minutos sem tráfego o serviço dorme, e a primeira
+requisição seguinte leva **até 50 segundos** para responder. Não é bug: se a vitrine parecer
+travada no primeiro acesso, é isso. Depois disso a navegação é normal.
+
+### `VITE_API_URL` é build-time
+
+O Vite embute o valor no bundle, então trocar a URL da API exige **redeploy do front**, não só
+mudar a variável. É a diferença entre `import.meta.env` e uma variável lida em execução.
+
+---
+
 ## Uso de IA
 
 Usei **Claude Code (Opus)** como par ao longo do desafio. O que ficou com cada um:
@@ -645,9 +721,11 @@ de que já esteja pronto.
 | Front-end: vitrine, reserva, checkout, ingressos | ✅ pronto      |
 | Front-end: portaria e painel do organizador    | ✅ pronto       |
 | Leitura do QR pela câmera                      | ✅ pronto       |
-| Testes do back-end (183)                       | ✅ pronto       |
+| Testes do back-end (193)                       | ✅ pronto       |
 | Testes do front-end (14)                       | 🟡 parcial      |
-| Deploy público                                 | 🔜 pendente     |
+| Docker Compose (um comando)                    | ✅ pronto       |
+| Configuração de deploy (Render + Vercel)       | ✅ pronto       |
+| Deploy público publicado                       | 🔜 pendente     |
 
 **Limitações conhecidas / avisos:**
 

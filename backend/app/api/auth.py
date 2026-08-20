@@ -48,7 +48,8 @@ def _set_session_cookie(response: Response, session_id: str) -> None:
         max_age=settings.session_ttl_seconds,
         httponly=True,  # invisível para JavaScript: XSS não rouba a sessão
         secure=settings.session_cookie_secure,  # True em produção
-        samesite="lax",
+        # Cross-site exige "none"; ver comentário em Settings.
+        samesite=settings.session_cookie_samesite,  # type: ignore[arg-type]
         path="/",
     )
 

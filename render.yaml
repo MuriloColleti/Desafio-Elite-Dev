@@ -1,0 +1,56 @@
+# Deploy do back-end no Render (Blueprint).
+#
+# No painel: New → Blueprint → aponte para este repositório. O Render lê este
+# arquivo e cria os serviços.
+#
+# O banco NÃO está aqui de propósito: o Postgres gratuito do Render **expira em
+# 30 dias**, e um avaliador que abrir o link depois disso encontraria a
+# aplicação morta. Usamos Neon (free, sem prazo) e passamos a URL por variável.
+# Ver a seção de deploy no README.
+
+services:
+  - type: web
+    name: palco-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    region: oregon
+    healthCheckPath: /health
+
+    envVars:
+      # --- Preenchidos no painel (sync: false = o Render pergunta) ---
+      - key: DATABASE_URL
+        sync: false # postgresql+psycopg://…  (Neon)
+      - key: REDIS_URL
+        sync: false # redis://…               (Upstash)
+      - key: CORS_ORIGINS
+        sync: false # https://<seu-app>.vercel.app
+      - key: PUBLIC_BASE_URL
+        sync: false # https://<seu-app>.vercel.app
+
+      # --- Gerado pelo Render, nunca digitado ---
+      # Assina o código do QR. Com valor previsível o ingresso é forjável, e a
+      # aplicação se recusa a subir com o padrão (ver Settings._conferir_producao).
+      - key: TICKET_HMAC_SECRET
+        generateValue: true
+
+      # --- Produção: HTTPS e cookie cross-site ---
+      # O front (Vercel) e a API (Render) ficam em domínios diferentes, então o
+      # navegador só envia o cookie de sessão com SameSite=None — que por sua
+      # vez exige Secure.
+      - key: SESSION_COOKIE_SECURE
+        value: 'true'
+      - key: SESSION_COOKIE_SAMESITE
+        value: none
+
+      - key: DEBUG
+        value: 'false'
+
+      # --- Catálogo externo (opcional) ---
+      # Sem chave a aplicação sobe e usa as fixtures locais; só a busca por
+      # títulos reais deixa de funcionar.
+      - key: TMDB_API_KEY
+        sync: false
+      - key: TICKETMASTER_API_KEY
+        sync: false
