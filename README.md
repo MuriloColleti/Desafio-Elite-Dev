@@ -4,11 +4,11 @@ Desafio Elite Dev (Verzel). Uma plataforma onde um **organizador** publica event
 catálogo externo (filmes do TMDb, shows do Ticketmaster), um **cliente** reserva lugar, paga de
 forma simulada e recebe um ingresso com QR, e a **portaria** valida esse ingresso na entrada.
 
-> **Status:** o **back-end está completo e testado** (182 testes) — todo o fluxo do enunciado
-> funciona pela API: catálogo, evento, reserva, pagamento com recusa, ingresso com QR, link de
-> compartilhamento e os quatro resultados da portaria. O **front-end ainda não existe**; até lá o
-> fluxo é percorrível pelo `/docs` (Swagger). Ver
-> [Status de implementação](#status-de-implementação).
+> **Status:** o fluxo do enunciado funciona **ponta a ponta** — vitrine, criação de evento a partir
+> do catálogo, reserva com mapa de assentos ou pista, pagamento simulado com recusa, ingresso com
+> QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 183 testes;
+> front-end com 14. O que falta está em [Status de implementação](#status-de-implementação) —
+> principalmente cobertura de testes do front e o deploy.
 
 ---
 
@@ -79,9 +79,28 @@ SSR nem SEO — é uma aplicação autenticada — e um SPA magro tira uma camad
 build do caminho.
 
 **Sobre o "AI slop".** Usei IA no projeto (detalhado em [Uso de IA](#uso-de-ia)), mas as decisões
-de produto e de interface são minhas e estão justificadas aqui. A UI não usa tema escuro com
-gradiente roxo e cards de vidro; é clara, tipográfica, com o pôster do evento carregando o peso
-visual — a imagem do filme/show é o que o usuário reconhece, então ela manda na tela.
+de produto e de interface são minhas. A direção visual é o oposto do que sai por padrão de uma
+ferramenta — e por um motivo concreto, não por contrariar:
+
+- **Papel claro, não tema escuro com gradiente.** Numa plataforma de eventos o que a pessoa
+  reconhece é o **pôster**. Fundo claro e neutro deixa a imagem mandar; fundo escuro competiria com
+  ela. O card da vitrine é dominado pela arte, em proporção 2:3 de cartaz, e não é uma linha de
+  tabela com miniatura ao lado.
+- **Uma cor de destaque só**, vermelho-tijolo de bilheteria, usada em ação principal, preço e erro.
+  Onde não há decisão a tomar, não há cor.
+- **Serifa nos títulos.** Cartaz de cinema é serifa; a fonte carrega parte do contexto.
+- **Cantos de 4px e separação por linha de 1px**, sem sombra difusa. Bilhete é papel, e a grade
+  editorial organiza melhor do que caixas flutuantes.
+- **O ingresso é desenhado como bilhete**: talão separado por picotado, com o QR nele. É a metáfora
+  que a pessoa reconhece na hora e o que diferencia de "mais um card".
+- **Assento ocupado é hachurado, não só cinza.** Cor sozinha não comunica estado para quem não a
+  distingue, e o botão é `disabled` de fato — ninguém deveria conseguir escolher um lugar vendido e
+  descobrir no erro da API.
+- **A tela da portaria é feita para ser lida de relance**, de pé, com fila esperando: o resultado
+  ocupa a tela com ícone e cor, e não é uma mensagem discreta ao lado do formulário.
+
+Um detalhe que revela a orientação: o mapa de assentos tem a **tela do cinema desenhada no topo**.
+Sem ela é uma grade abstrata e ninguém sabe onde é a frente da sala.
 
 ---
 
@@ -555,8 +574,16 @@ que faz questão de um banco de verdade. Ele também cobre o outro lado: cancela
 o assento ao estoque, e reservas de pista (`seat_label NULL`) não se bloqueiam entre si.
 
 ```bash
-cd frontend && npm test           # componentes (ainda não implementado)
+cd frontend
+npm install
+npm test          # 14 testes: mapa de assentos e formatação
+npm run lint      # oxlint
+npm run build     # type-check + build de produção
 ```
+
+No front os testes cobrem o que quebra silenciosamente: a indisponibilidade do assento (um lugar
+ocupado precisa ser **impossível** de clicar, não apenas cinza) e o rótulo do assento, que tem de
+casar com a validação do servidor — se divergir, o mapa pede um assento que a API rejeita.
 
 ---
 
@@ -615,9 +642,11 @@ de que já esteja pronto.
 | Pagamento simulado (aprovação e recusa)        | ✅ pronto       |
 | Emissão do ingresso, QR e link de compartilhar | ✅ pronto       |
 | Validação na portaria (API, 4 resultados)      | ✅ pronto       |
-| Front-end (todas as telas)                     | 🔜 pendente     |
-| Leitura do QR pela câmera                      | 🔜 pendente     |
-| Testes do back-end (182)                       | ✅ pronto       |
+| Front-end: vitrine, reserva, checkout, ingressos | ✅ pronto      |
+| Front-end: portaria e painel do organizador    | ✅ pronto       |
+| Leitura do QR pela câmera                      | ✅ pronto       |
+| Testes do back-end (183)                       | ✅ pronto       |
+| Testes do front-end (14)                       | 🟡 parcial      |
 | Deploy público                                 | 🔜 pendente     |
 
 **Limitações conhecidas / avisos:**

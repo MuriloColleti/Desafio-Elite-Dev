@@ -1,0 +1,400 @@
+/*
+ * Direção visual — decisões, não padrões.
+ *
+ * O enunciado pede para fugir do "AI slop": aquela interface escura de gradiente
+ * roxo e card de vidro que todo projeto gerado tem. Então a escolha aqui é o
+ * oposto disso, e por um motivo concreto: numa plataforma de eventos o que o
+ * usuário reconhece é o **pôster** do filme ou do show. Fundo claro e neutro
+ * deixa a imagem mandar na tela; fundo escuro competiria com ela.
+ *
+ * - Papel off-white, quase impresso, em vez de branco puro ou cinza-azulado.
+ * - Uma cor de destaque só (vermelho-tijolo), emprestada de bilheteria de
+ *   cinema. Usada com parcimônia: ação principal, preço, estado de erro.
+ * - Tipografia com peso: título em serifa, porque cartaz de cinema é serifa.
+ * - Cantos pouco arredondados (4px). Bilhete é papel, não bolha.
+ * - Sem sombra difusa. Separação por linha de 1px, como grade editorial.
+ */
+
+:root {
+  /* Papel e tinta */
+  --papel: #f7f5f1;
+  --papel-alto: #fffefb;
+  --tinta: #1a1714;
+  --tinta-media: #5c554d;
+  --tinta-fraca: #918a80;
+  --linha: #ded8ce;
+  --linha-forte: #c4bcaf;
+
+  /* Destaque: bilheteria */
+  --marca: #b0402c;
+  --marca-escura: #8a3222;
+  --marca-fraca: #f5e6e1;
+
+  /* Estados */
+  --ok: #2f6b45;
+  --ok-fraco: #e4efe7;
+  --alerta: #8a6420;
+  --alerta-fraco: #f7eeda;
+  --erro: #a8321f;
+  --erro-fraco: #f9e5e1;
+
+  --serifa: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --raio: 4px;
+  --largura: 1120px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--papel);
+  color: var(--tinta);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--serifa);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+h1 {
+  font-size: 2rem;
+}
+h2 {
+  font-size: 1.4rem;
+}
+h3 {
+  font-size: 1.1rem;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* --- Layout --- */
+
+.container {
+  max-width: var(--largura);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.pilha {
+  display: flex;
+  flex-direction: column;
+}
+.pilha-8 {
+  gap: 8px;
+}
+.pilha-16 {
+  gap: 16px;
+}
+.pilha-24 {
+  gap: 24px;
+}
+.pilha-32 {
+  gap: 32px;
+}
+
+.linha-flex {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.entre {
+  justify-content: space-between;
+}
+
+/* --- Cabeçalho --- */
+
+.cabecalho {
+  border-bottom: 1px solid var(--linha);
+  background: var(--papel-alto);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.cabecalho-interno {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  gap: 24px;
+}
+
+.marca-logo {
+  font-family: var(--serifa);
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+/* O ponto vermelho ao lado do nome: um único acento de cor na identidade,
+   que remete ao furo do bilhete picado. */
+.marca-logo::after {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--marca);
+  margin-left: 3px;
+  vertical-align: 0.35em;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  font-size: 0.9rem;
+}
+
+.nav a {
+  color: var(--tinta-media);
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+}
+.nav a:hover {
+  color: var(--tinta);
+}
+.nav a.ativo {
+  color: var(--tinta);
+  border-bottom-color: var(--marca);
+}
+
+/* --- Botões --- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border: 1px solid transparent;
+  border-radius: var(--raio);
+  font-size: 0.925rem;
+  font-weight: 500;
+  transition: background-color 0.12s, border-color 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+
+.btn-principal {
+  background: var(--marca);
+  color: #fff;
+}
+.btn-principal:hover:not(:disabled) {
+  background: var(--marca-escura);
+}
+
+.btn-secundario {
+  background: transparent;
+  color: var(--tinta);
+  border-color: var(--linha-forte);
+}
+.btn-secundario:hover:not(:disabled) {
+  border-color: var(--tinta-media);
+  background: var(--papel-alto);
+}
+
+.btn-texto {
+  background: none;
+  border: none;
+  color: var(--tinta-media);
+  padding: 6px 0;
+  text-decoration: underline;
+  text-decoration-color: var(--linha-forte);
+  text-underline-offset: 3px;
+}
+.btn-texto:hover {
+  color: var(--marca);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-largo {
+  width: 100%;
+}
+
+/* --- Campos --- */
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.campo label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--tinta-media);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.campo input,
+.campo select {
+  padding: 10px 12px;
+  border: 1px solid var(--linha-forte);
+  border-radius: var(--raio);
+  background: var(--papel-alto);
+  color: var(--tinta);
+}
+
+.campo input:focus,
+.campo select:focus {
+  outline: 2px solid var(--marca);
+  outline-offset: -1px;
+  border-color: var(--marca);
+}
+
+.campo-dica {
+  font-size: 0.8rem;
+  color: var(--tinta-fraca);
+}
+
+/* --- Avisos --- */
+
+.aviso {
+  padding: 12px 14px;
+  border-radius: var(--raio);
+  border-left: 3px solid;
+  font-size: 0.9rem;
+}
+
+.aviso-erro {
+  background: var(--erro-fraco);
+  border-color: var(--erro);
+  color: #7a2416;
+}
+.aviso-ok {
+  background: var(--ok-fraco);
+  border-color: var(--ok);
+  color: #1f4a2f;
+}
+.aviso-alerta {
+  background: var(--alerta-fraco);
+  border-color: var(--alerta);
+  color: #6b4d18;
+}
+.aviso-neutro {
+  background: var(--papel-alto);
+  border-color: var(--linha-forte);
+  color: var(--tinta-media);
+}
+
+/* --- Etiquetas --- */
+
+.etiqueta {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.etiqueta-publicado {
+  background: var(--ok-fraco);
+  color: var(--ok);
+}
+.etiqueta-rascunho {
+  background: var(--alerta-fraco);
+  color: var(--alerta);
+}
+.etiqueta-cancelado {
+  background: var(--erro-fraco);
+  color: var(--erro);
+}
+.etiqueta-usado {
+  background: var(--linha);
+  color: var(--tinta-media);
+}
+
+/* --- Utilidades --- */
+
+.texto-fraco {
+  color: var(--tinta-fraca);
+}
+.texto-medio {
+  color: var(--tinta-media);
+}
+.texto-p {
+  font-size: 0.875rem;
+}
+.texto-pp {
+  font-size: 0.8rem;
+}
+.mono {
+  font-family: var(--mono);
+}
+.serifa {
+  font-family: var(--serifa);
+}
+.centro {
+  text-align: center;
+}
+
+.preco {
+  font-family: var(--serifa);
+  font-weight: 600;
+  color: var(--marca);
+}
+
+.divisor {
+  height: 1px;
+  background: var(--linha);
+  border: 0;
+  margin: 0;
+}
+
+.vazio {
+  padding: 56px 24px;
+  text-align: center;
+  color: var(--tinta-fraca);
+  border: 1px dashed var(--linha-forte);
+  border-radius: var(--raio);
+}
+
+.carregando {
+  padding: 40px;
+  text-align: center;
+  color: var(--tinta-fraca);
+  font-size: 0.9rem;
+}

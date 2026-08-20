@@ -1,0 +1,795 @@
+/* Componentes. Continuação de global.css. */
+
+/* ---------- Vitrine ---------- */
+
+.vitrine-filtros {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.vitrine-filtros input[type='search'] {
+  flex: 1 1 280px;
+  padding: 10px 14px;
+  border: 1px solid var(--linha-forte);
+  border-radius: var(--raio);
+  background: var(--papel-alto);
+}
+.vitrine-filtros input[type='search']:focus {
+  outline: 2px solid var(--marca);
+  outline-offset: -1px;
+}
+
+.vitrine-abas {
+  display: flex;
+  border: 1px solid var(--linha-forte);
+  border-radius: var(--raio);
+  overflow: hidden;
+}
+
+.aba {
+  padding: 9px 16px;
+  background: var(--papel-alto);
+  border: none;
+  border-right: 1px solid var(--linha);
+  font-size: 0.85rem;
+  color: var(--tinta-media);
+}
+.aba:last-child {
+  border-right: none;
+}
+.aba:hover {
+  background: var(--papel);
+}
+.aba.ativa {
+  background: var(--tinta);
+  color: var(--papel-alto);
+}
+
+.grade-eventos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(216px, 1fr));
+  gap: 28px 24px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.card-evento {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+}
+
+.card-poster {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  background: var(--linha);
+  border-radius: var(--raio);
+  overflow: hidden;
+}
+
+.card-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.35s ease;
+}
+.card-evento:hover .card-poster img {
+  transform: scale(1.03);
+}
+
+.card-poster-vazio {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  text-align: center;
+  background: linear-gradient(170deg, #2a2521, #4a423a);
+  color: #f0e9df;
+  font-size: 1.1rem;
+  line-height: 1.25;
+}
+
+.card-tipo {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  padding: 3px 8px;
+  background: rgba(20, 18, 16, 0.82);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 2px;
+}
+
+.card-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.card-titulo {
+  font-size: 1.02rem;
+  line-height: 1.25;
+}
+
+.card-meta {
+  margin: 0;
+  color: var(--tinta-media);
+  line-height: 1.45;
+}
+
+.card-rodape {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--linha);
+}
+
+/* ---------- Login ---------- */
+
+.entrar-grade {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+  gap: 48px;
+  align-items: start;
+  max-width: 780px;
+  margin: 24px auto 0;
+}
+
+@media (max-width: 720px) {
+  .entrar-grade {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+}
+
+.entrar-contas {
+  padding: 20px;
+  background: var(--papel-alto);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+}
+
+.conta-seed {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 10px 12px;
+  text-align: left;
+  background: var(--papel);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+}
+.conta-seed:hover {
+  border-color: var(--marca);
+  background: var(--marca-fraca);
+}
+
+.conta-papel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--marca);
+}
+
+/* ---------- Detalhe do evento ---------- */
+
+.evento-topo {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+
+@media (max-width: 700px) {
+  .evento-topo {
+    grid-template-columns: 120px minmax(0, 1fr);
+    gap: 20px;
+  }
+}
+
+.evento-poster {
+  width: 100%;
+  border-radius: var(--raio);
+  display: block;
+}
+
+.evento-dados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 28px;
+  margin: 0;
+}
+.evento-dados dt {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--tinta-fraca);
+  margin-bottom: 2px;
+}
+.evento-dados dd {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.reserva-area {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 40px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .reserva-area {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+}
+
+.resumo {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  background: var(--papel-alto);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  position: sticky;
+  top: 84px;
+}
+
+/* ---------- Mapa de assentos ---------- */
+
+.mapa {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 24px 20px;
+  background: var(--papel-alto);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  overflow-x: auto;
+}
+
+/* A "tela" no topo dá a orientação da sala. Sem ela, o mapa é uma grade
+   abstrata e a pessoa não sabe onde é a frente. */
+.mapa-tela {
+  text-align: center;
+  padding-bottom: 14px;
+  border-bottom: 3px solid var(--tinta);
+  border-radius: 0 0 50% 50% / 0 0 14px 14px;
+  margin: 0 28px 6px;
+}
+.mapa-tela span {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--tinta-fraca);
+}
+
+.mapa-grade {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: max-content;
+  margin: 0 auto;
+}
+
+.mapa-fileira {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.mapa-letra {
+  width: 18px;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--tinta-fraca);
+  flex-shrink: 0;
+}
+
+.assento {
+  width: 27px;
+  height: 27px;
+  flex-shrink: 0;
+  border: 1px solid var(--linha-forte);
+  border-radius: 3px 3px 5px 5px;
+  background: var(--papel-alto);
+  font-size: 0.65rem;
+  color: var(--tinta-fraca);
+  display: grid;
+  place-items: center;
+  transition: background-color 0.1s, border-color 0.1s, transform 0.1s;
+}
+
+.assento:hover:not(:disabled) {
+  border-color: var(--marca);
+  background: var(--marca-fraca);
+  transform: translateY(-1px);
+}
+
+.assento.selecionado {
+  background: var(--marca);
+  border-color: var(--marca-escura);
+  color: #fff;
+  font-weight: 700;
+}
+
+.assento.ocupado {
+  /* Hachurado, não só cinza: o estado precisa ser distinguível sem depender de
+     percepção de cor. */
+  background: repeating-linear-gradient(
+    45deg,
+    var(--linha),
+    var(--linha) 2px,
+    var(--linha-forte) 2px,
+    var(--linha-forte) 4px
+  );
+  border-color: var(--linha-forte);
+  color: transparent;
+  cursor: not-allowed;
+}
+
+.mapa-legenda {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+  list-style: none;
+  margin: 0;
+  padding: 14px 0 0;
+  border-top: 1px solid var(--linha);
+  font-size: 0.78rem;
+  color: var(--tinta-media);
+}
+.mapa-legenda li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.amostra {
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+  border: 1px solid var(--linha-forte);
+  display: inline-block;
+}
+.amostra.livre {
+  background: var(--papel-alto);
+}
+.amostra.selecionada {
+  background: var(--marca);
+  border-color: var(--marca-escura);
+}
+.amostra.tomada {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--linha),
+    var(--linha) 2px,
+    var(--linha-forte) 2px,
+    var(--linha-forte) 4px
+  );
+}
+
+/* ---------- Quantidade (pista) ---------- */
+
+.quantidade {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  background: var(--papel-alto);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+}
+.quantidade .btn {
+  width: 42px;
+  padding: 8px 0;
+  font-size: 1.2rem;
+}
+.quantidade-valor {
+  font-size: 1.9rem;
+  min-width: 48px;
+  text-align: center;
+}
+
+/* ---------- Checkout ---------- */
+
+.cartoes-teste {
+  padding: 16px;
+  background: var(--papel-alto);
+  border: 1px dashed var(--linha-forte);
+  border-radius: var(--raio);
+}
+
+.cartao-teste {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 12px;
+  background: var(--papel);
+  border: 1px solid var(--linha-forte);
+  border-radius: var(--raio);
+  color: var(--tinta-media);
+}
+.cartao-teste:hover {
+  border-color: var(--marca);
+  color: var(--marca);
+}
+
+.selo-recusa {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: var(--erro-fraco);
+  color: var(--erro);
+  font-size: 1.6rem;
+}
+
+/* ---------- Bilhete ---------- */
+
+.bilhete {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px;
+  background: var(--papel-alto);
+  border: 1px solid var(--linha-forte);
+  border-radius: var(--raio);
+  overflow: hidden;
+}
+
+@media (max-width: 640px) {
+  .bilhete {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bilhete-inativo {
+  opacity: 0.72;
+}
+
+.bilhete-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 24px;
+}
+
+.bilhete-titulo {
+  font-size: 1.3rem;
+  margin: 0;
+}
+
+.bilhete-dados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 26px;
+  margin: 0;
+}
+.bilhete-dados dt {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--tinta-fraca);
+  margin-bottom: 2px;
+}
+.bilhete-dados dd {
+  margin: 0;
+}
+
+/* O picotado vertical é o que faz o elemento ler como bilhete. Em telas
+   estreitas o talão vai para baixo, então a linha vira horizontal. */
+.bilhete-talao {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 22px 16px;
+  background: var(--papel);
+  border-left: 2px dashed var(--linha-forte);
+}
+
+@media (max-width: 640px) {
+  .bilhete-talao {
+    border-left: none;
+    border-top: 2px dashed var(--linha-forte);
+  }
+}
+
+.qr {
+  width: 132px;
+  height: 132px;
+  display: block;
+  background: #fff;
+  padding: 6px;
+  border-radius: 2px;
+}
+
+.qr-invalidado {
+  width: 132px;
+  height: 132px;
+  display: grid;
+  place-items: center;
+  background: var(--linha);
+  color: var(--tinta-media);
+  border-radius: 2px;
+  text-align: center;
+}
+
+.bilhete-codigo {
+  font-size: 0.68rem;
+  color: var(--tinta-fraca);
+  letter-spacing: 0.03em;
+}
+
+.bilhete-publico {
+  grid-template-columns: 1fr;
+}
+
+/* ---------- Portaria ---------- */
+
+.portaria {
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.leitor-area {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.leitor-video {
+  width: 100%;
+  border-radius: var(--raio);
+  overflow: hidden;
+  background: #14120f;
+  min-height: 240px;
+}
+.leitor-video video {
+  width: 100% !important;
+  display: block;
+}
+
+.separador-ou {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--tinta-fraca);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.separador-ou::before,
+.separador-ou::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--linha);
+}
+
+/* O resultado é o elemento mais importante da tela: quem opera a portaria lê
+   de relance, com fila esperando. Grande, colorido e com ícone. */
+.resultado {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 36px 24px;
+  border-radius: var(--raio);
+  border: 2px solid;
+  text-align: center;
+}
+
+.resultado-icone {
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.resultado-titulo {
+  font-family: var(--serifa);
+  font-size: 1.7rem;
+}
+
+.resultado-msg {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.resultado.valido {
+  background: var(--ok-fraco);
+  border-color: var(--ok);
+  color: #17402a;
+}
+.resultado.valido .resultado-icone {
+  background: var(--ok);
+  color: #fff;
+}
+
+.resultado.usado {
+  background: var(--alerta-fraco);
+  border-color: var(--alerta);
+  color: #5c4114;
+}
+.resultado.usado .resultado-icone {
+  background: var(--alerta);
+  color: #fff;
+}
+
+.resultado.errado {
+  background: var(--alerta-fraco);
+  border-color: #b06a1f;
+  color: #6b3f10;
+}
+.resultado.errado .resultado-icone {
+  background: #b06a1f;
+  color: #fff;
+}
+
+.resultado.invalido {
+  background: var(--erro-fraco);
+  border-color: var(--erro);
+  color: #6f2013;
+}
+.resultado.invalido .resultado-icone {
+  background: var(--erro);
+  color: #fff;
+}
+
+.resultado-dados {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 22px;
+  margin: 4px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid currentColor;
+  width: 100%;
+  opacity: 0.9;
+}
+.resultado-dados dt {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.75;
+}
+.resultado-dados dd {
+  margin: 2px 0 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* ---------- Organizador ---------- */
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--papel-alto);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+  overflow: hidden;
+}
+
+.tabela th {
+  text-align: left;
+  padding: 11px 14px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--tinta-fraca);
+  background: var(--papel);
+  border-bottom: 1px solid var(--linha);
+}
+
+.tabela td {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--linha);
+  vertical-align: middle;
+}
+.tabela tr:last-child td {
+  border-bottom: none;
+}
+
+@media (max-width: 800px) {
+  .tabela {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}
+
+.ocupacao {
+  width: 74px;
+  height: 5px;
+  background: var(--linha);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 3px;
+}
+.ocupacao-preenchida {
+  height: 100%;
+  background: var(--marca);
+}
+
+.grade-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 18px;
+}
+
+.catalogo-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.catalogo-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 10px;
+  background: var(--papel-alto);
+  border: 1px solid var(--linha);
+  border-radius: var(--raio);
+}
+.catalogo-item:hover {
+  border-color: var(--marca);
+  background: var(--marca-fraca);
+}
+.catalogo-item img,
+.catalogo-sem-poster {
+  width: 44px;
+  height: 66px;
+  object-fit: cover;
+  border-radius: 2px;
+  background: var(--linha);
+  flex-shrink: 0;
+}
+
+.escolhido {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  padding: 16px;
+  background: var(--papel-alto);
+  border: 1px solid var(--linha-forte);
+  border-radius: var(--raio);
+}
+.escolhido img {
+  width: 62px;
+  height: 93px;
+  object-fit: cover;
+  border-radius: 2px;
+}
