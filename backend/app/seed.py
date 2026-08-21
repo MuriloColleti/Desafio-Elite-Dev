@@ -19,6 +19,7 @@ Uso:
 """
 
 import argparse
+import asyncio
 import secrets
 import sys
 from datetime import UTC, datetime, timedelta
@@ -26,6 +27,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.db import SessionLocal
 from app.core.security import hash_password, sign_ticket_code
 from app.models.entities import Event, Payment, Reservation, Ticket, User
@@ -38,6 +40,7 @@ from app.models.enums import (
     TicketStatus,
 )
 from app.providers import fixtures
+from app.services import catalog
 
 SENHA = "senha123"
 
@@ -65,11 +68,56 @@ def limpar(db: Session) -> None:
     db.commit()
 
 
+async def obter_filmes(quantos: int = 49) -> tuple[list, bool]:
+    """Filmes para semear, e se vieram da API.
+
+    Com chave configurada, busca no TMDb — a vitrine passa a mostrar o que está
+    de fato em cartaz. Sem chave, usa as fixtures locais: quem clona o
+    repositório sem chave ainda precisa de uma vitrine populada para percorrer o
+    fluxo, e um seed que falha deixaria a home vazia.
+
+    Uma página do TMDb traz 20 filmes, então percorremos algumas para chegar ao
+    volume pedido. Se a API responder menos que o esperado (rede instável, quota),
+    completamos com fixtures em vez de semear uma vitrine magra.
+    """
+    if settings.catalog_offline:
+        return list(fixtures.FIXTURES)[:quantos], False
+
+    vistos: dict[str, object] = {}
+
+    # A busca vazia traz o que está em cartaz — é o que interessa a um cinema.
+    # Os termos seguintes existem só para completar o volume com variedade de
+    # gênero, já que uma resposta do TMDb traz 20 filmes e queremos ~49. O
+    # dicionário por `ref` remove as duplicatas entre as buscas.
+    for termo in ("", "aventura", "terror", "comédia", "drama", "animação"):
+        if len(vistos) >= quantos:
+            break
+        try:
+            achados = await catalog.search(termo, limit=20)
+        except Exception:
+            # Falha de rede no meio não invalida o que já veio; o fallback
+            # abaixo completa o resto.
+            achados = []
+        for item in achados:
+            vistos.setdefault(item.ref, item)
+
+    filmes = list(vistos.values())[:quantos]
+
+    if len(filmes) < quantos:
+        # Completa com fixtures, sem repetir o que a API já trouxe.
+        refs = {getattr(f, "ref", None) for f in filmes}
+        filmes += [f for f in fixtures.FIXTURES if f.ref not in refs][: quantos - len(filmes)]
+
+    return filmes, bool(vistos)
+
+
 def _ja_populado(db: Session) -> bool:
     return db.scalar(select(User).limit(1)) is not None
 
 
-def povoar(db: Session) -> dict[str, str]:
+def povoar(db: Session, filmes: list | None = None) -> dict[str, str]:
+    """Popula o banco. `filmes` vem de `obter_filmes()`; sem ele usa as fixtures
+    (é o caminho dos testes, que não devem depender de rede)."""
     senha_hash = hash_password(SENHA)
 
     # --- Usuários (os quatro papéis que o PDF pede) ---
@@ -101,13 +149,20 @@ def povoar(db: Session) -> dict[str, str]:
     db.flush()
 
     # --- Eventos ---
-    # Derivados das fixtures do catálogo: título, sinopse e pôster vêm de lá, e
-    # não duplicados aqui. Duas cópias do mesmo pôster divergiriam na primeira
+    # Título, sinopse, pôster e gênero vêm do catálogo (API ou fixtures), não
+    # duplicados aqui: duas cópias do mesmo pôster divergiriam na primeira
     # correção — já aconteceu neste arquivo.
     #
     # Datas relativas ao momento da execução: com data fixa o seed envelhece e
     # a vitrine aparece vazia semanas depois.
-    filmes = list(fixtures.FIXTURES)
+    if filmes is None:
+        filmes = list(fixtures.FIXTURES)
+
+    # Os dois últimos ficam reservados: um para a sessão ao ar livre, outro para
+    # o rascunho. Sem isso o mesmo filme apareceria duas vezes na vitrine — o
+    # que num cinema real é normal, mas na tela parece descuido.
+    reservados = filmes[-2:] if len(filmes) > 2 else filmes
+    filmes = filmes[:-2] if len(filmes) > 2 else filmes
 
     def evento_de(
         item,
@@ -192,7 +247,7 @@ def povoar(db: Session) -> dict[str, str]:
     # layout GENERAL continua disponível para cine-drive-in e sessão em praça —
     # e é o que mantém os dois fluxos de reserva do enunciado cobertos.
     ao_ar_livre = evento_de(
-        filmes[3],
+        reservados[0],
         venue="Cine Autorama — Pátio",
         cidade="São Paulo",
         uf="SP",
@@ -205,7 +260,7 @@ def povoar(db: Session) -> dict[str, str]:
     # Rascunho: o painel do organizador precisa mostrar estado misto, senão não
     # se vê a diferença entre publicar e não publicar.
     rascunho = evento_de(
-        filmes[-1],
+        reservados[-1],
         venue="Cine Belas Artes — Sala 5",
         cidade="São Paulo",
         uf="SP",
@@ -394,7 +449,12 @@ def main() -> int:
             )
             return 1
 
-        refs = povoar(db)
+        filmes, da_api = asyncio.run(obter_filmes())
+        print(
+            f"  {len(filmes)} filmes "
+            + ("do TMDb (em cartaz)" if da_api else "do catálogo local (sem chave de API)")
+        )
+        refs = povoar(db, filmes)
 
     print("Seed concluído.\n")
     print(f"  Senha de todos os usuários: {SENHA}\n")

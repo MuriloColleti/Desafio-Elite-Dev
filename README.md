@@ -10,7 +10,7 @@ simulada e recebe um ingresso com QR, e a portaria valida esse ingresso na entra
 >
 > **Status:** o fluxo do enunciado funciona **ponta a ponta** — vitrine, criação de evento a partir
 > do catálogo, reserva com mapa de assentos ou pista, pagamento simulado com recusa, ingresso com
-> QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 209 testes;
+> QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 214 testes;
 > front-end com 62. O que falta está em [Status de implementação](#status-de-implementação) —
 > principalmente cobertura de testes do front e o deploy.
 
@@ -386,6 +386,17 @@ Gratuita e sai na hora.
 *Settings → API*, peça uma chave de uso pessoal e copie a **API Key (v3 auth)** para
 `TMDB_API_KEY`.
 
+**De onde vêm os filmes.** Há dois caminhos, e vale distinguir:
+
+| Caminho | Fonte |
+| ------- | ----- |
+| Busca do organizador em *Criar evento* | TMDb ao vivo (ou fixtures sem chave) |
+| Sessões que aparecem na vitrine | snapshot no banco, criado pelo seed ou pelo organizador |
+
+A vitrine lê o **snapshot**, e não a API: `Event` copia título, sinopse, pôster e gênero no
+momento da criação. Assim a vitrine não depende de a API externa estar de pé, e uma sessão
+publicada não muda de cara se o TMDb editar o registro depois.
+
 **Sem a chave a aplicação sobe.** O catálogo cai para um conjunto de 49 filmes de exemplo em
 `backend/app/providers/fixtures.py`, e a busca avisa na tela que está em modo offline. Isso é
 proposital: quem avalia consegue percorrer todo o fluxo de compra e validação sem cadastrar chave
@@ -406,12 +417,19 @@ em serviço nenhum. O que não funciona sem chave é apenas a busca por títulos
 
 E também:
 
-- **~64 eventos publicados**, derivados das fixtures do catálogo (título, sinopse, pôster e
-  gênero vêm de lá, não duplicados no seed):
-  - **49 sessões de cinema** com mapa de assentos, em dez salas de tamanhos diferentes (5×10 até
-    9×12) e preços variados;
-  - **15 shows** com pista por quantidade, de 250 a 1200 lugares;
-  - **todos os 21 gêneros** têm ao menos um evento, então nenhum filtro devolve lista vazia.
+- **~50 sessões publicadas.** Com `TMDB_API_KEY` configurada, o seed busca os filmes **em cartaz
+  no TMDb** — a vitrine mostra o que está passando de verdade. Sem chave, usa o catálogo local de
+  49 filmes: quem clona o repositório sem chave ainda precisa de vitrine populada, e um seed que
+  dependesse da API deixaria a home vazia. O seed imprime qual fonte usou.
+
+  Título, sinopse, pôster e gênero vêm do catálogo, não duplicados no seed:
+  - **~47 sessões com mapa de assentos**, em doze salas de tamanhos diferentes (5×10 até 9×12),
+    espalhadas por 13 cidades em 11 estados, com preços variados;
+  - **1 sessão ao ar livre** sem lugar marcado, para o segundo fluxo de reserva ficar
+    demonstrável;
+  - **nenhum título repetido**: dois filmes ficam reservados para a sessão ao ar livre e o
+    rascunho, porque o mesmo filme em duas salas — normal num cinema real — parece descuido na
+    tela de demonstração.
   - No primeiro filme, **10 lugares já ocupados** de propósito, espalhados em fileiras
     diferentes: mapa vazio não mostra que a indisponibilidade funciona.
 - **1 evento em rascunho**, para se ver o painel do organizador com estado misto.
@@ -769,7 +787,7 @@ de que já esteja pronto.
 | Front-end: vitrine, reserva, checkout, ingressos | ✅ pronto      |
 | Front-end: portaria e painel do organizador    | ✅ pronto       |
 | Leitura do QR pela câmera                      | ✅ pronto       |
-| Testes do back-end (209)                       | ✅ pronto       |
+| Testes do back-end (214)                       | ✅ pronto       |
 | Testes do front-end (62)                       | 🟡 parcial      |
 | Docker Compose (um comando)                    | ✅ pronto       |
 | Configuração de deploy (Render + Vercel)       | ✅ pronto       |

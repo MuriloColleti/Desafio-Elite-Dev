@@ -212,3 +212,120 @@ def test_todo_ingresso_vem_de_reserva_paga(db_semeado):
     db, _ = db_semeado
     for t in db.scalars(select(Ticket)).all():
         assert t.reservation.status == "PAID", "ingresso sem pagamento aprovado"
+
+
+# --- Fonte dos filmes ---
+
+
+def test_sem_chave_usa_as_fixtures(redis_fake, monkeypatch):
+    """Quem clona sem chave precisa de vitrine populada.
+
+    Um seed que dependesse da API deixaria a home vazia — e o README promete
+    que o fluxo inteiro funciona sem cadastrar chave em serviço nenhum.
+    """
+    import asyncio
+
+    from app.core import config
+    from app.providers import fixtures
+    from app.seed import obter_filmes
+
+    monkeypatch.setattr(config.settings, "tmdb_api_key", None)
+
+    filmes, da_api = asyncio.run(obter_filmes(quantos=5))
+
+    assert da_api is False
+    assert [f.ref for f in filmes] == [f.ref for f in fixtures.FIXTURES[:5]]
+
+
+def test_com_chave_busca_no_catalogo(redis_fake, monkeypatch):
+    import asyncio
+
+    from app.core import config
+    from app.providers.base import CatalogItem, CatalogSource
+    from app.seed import obter_filmes
+
+    monkeypatch.setattr(config.settings, "tmdb_api_key", "chave-falsa")
+
+    async def falso(_termo, limit=20):
+        return [
+            CatalogItem(
+                ref=f"tmdb:movie:{n}",
+                source=CatalogSource.TMDB,
+                title=f"Filme {n}",
+                poster_url="https://img/p.jpg",
+            )
+            for n in range(limit)
+        ]
+
+    monkeypatch.setattr("app.seed.catalog.search", falso)
+
+    filmes, da_api = asyncio.run(obter_filmes(quantos=5))
+
+    assert da_api is True
+    assert len(filmes) == 5
+    assert all(f.title.startswith("Filme") for f in filmes)
+
+
+def test_api_com_pouco_resultado_completa_com_fixtures(redis_fake, monkeypatch):
+    """Rede instável ou quota não deve resultar em vitrine magra."""
+    import asyncio
+
+    from app.core import config
+    from app.providers.base import CatalogItem, CatalogSource
+    from app.seed import obter_filmes
+
+    monkeypatch.setattr(config.settings, "tmdb_api_key", "chave-falsa")
+
+    async def poucos(_termo, limit=20):
+        return [
+            CatalogItem(
+                ref="tmdb:movie:1",
+                source=CatalogSource.TMDB,
+                title="Único",
+                poster_url="https://img/p.jpg",
+            )
+        ]
+
+    monkeypatch.setattr("app.seed.catalog.search", poucos)
+
+    filmes, _ = asyncio.run(obter_filmes(quantos=6))
+
+    assert len(filmes) == 6, "deveria completar com fixtures"
+    assert filmes[0].title == "Único"
+
+
+def test_provedor_quebrado_nao_impede_o_seed(redis_fake, monkeypatch):
+    """Sem isto o seed falharia e o banco ficaria sem evento nenhum."""
+    import asyncio
+
+    from app.core import config
+    from app.seed import obter_filmes
+
+    monkeypatch.setattr(config.settings, "tmdb_api_key", "chave-falsa")
+
+    async def explode(_termo, limit=20):
+        raise RuntimeError("API fora do ar")
+
+    monkeypatch.setattr("app.seed.catalog.search", explode)
+
+    filmes, da_api = asyncio.run(obter_filmes(quantos=4))
+
+    assert da_api is False
+    assert len(filmes) == 4
+
+
+def test_nao_repete_filme_entre_as_sessoes(db_semeado):
+    """O mesmo título duas vezes na vitrine parece descuido.
+
+    Num cinema real duas sessões do mesmo filme é o normal, mas na tela de
+    demonstração passa por erro — daí os dois filmes reservados.
+    """
+    from collections import Counter
+
+    from sqlalchemy import select
+
+    db, _ = db_semeado
+    titulos = [e.title for e in db.scalars(select(Event)).all()]
+
+    repetidos = {t: n for t, n in Counter(titulos).items() if n > 1}
+    assert not repetidos, f"títulos repetidos: {repetidos}"
