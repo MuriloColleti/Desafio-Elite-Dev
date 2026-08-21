@@ -27,6 +27,7 @@ from app.core.db import Base
 from app.models.enums import (
     EventLayout,
     EventStatus,
+    Genre,
     PaymentStatus,
     ReservationStatus,
     Role,
@@ -99,6 +100,9 @@ class Event(Base, TimestampMixin):
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
 
     layout: Mapped[EventLayout] = mapped_column(_enum(EventLayout), nullable=False)
+    # Opcional: evento com título livre pode não ter gênero definido, e
+    # exigir um obrigaria o organizador a escolher no chute.
+    genre: Mapped[Genre | None] = mapped_column(_enum(Genre), nullable=True, index=True)
     capacity: Mapped[int] = mapped_column(Integer, nullable=False)
     price_cents: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[EventStatus] = mapped_column(

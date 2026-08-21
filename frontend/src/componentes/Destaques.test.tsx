@@ -23,6 +23,7 @@ function evento(titulo: string): Evento {
     venue: 'Sala 1',
     starts_at: new Date(Date.now() + 86_400_000).toISOString(),
     layout: 'SEATED',
+    genre: 'DRAMA',
     price_cents: 3200,
     capacity: 96,
     status: 'PUBLISHED',

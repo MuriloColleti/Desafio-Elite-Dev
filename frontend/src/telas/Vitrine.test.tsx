@@ -28,6 +28,7 @@ function evento(over: Partial<Evento> = {}): Evento {
     venue: 'Local',
     starts_at: new Date(Date.now() + 86_400_000).toISOString(),
     layout: 'SEATED',
+    genre: 'DRAMA',
     price_cents: 3200,
     capacity: 96,
     status: 'PUBLISHED',
@@ -37,10 +38,13 @@ function evento(over: Partial<Evento> = {}): Evento {
 }
 
 const FILMES = [
-  evento({ title: 'Parasita', layout: 'SEATED' }),
-  evento({ title: 'O Grande Truque', layout: 'SEATED' }),
+  evento({ title: 'Parasita', layout: 'SEATED', genre: 'SUSPENSE' }),
+  evento({ title: 'O Grande Truque', layout: 'SEATED', genre: 'SUSPENSE' }),
+  evento({ title: 'Corra!', layout: 'SEATED', genre: 'TERROR' }),
 ]
-const SHOWS = [evento({ title: 'Baile do Terreiro', layout: 'GENERAL', venue: 'Circo Voador' })]
+const SHOWS = [
+  evento({ title: 'Baile do Terreiro', layout: 'GENERAL', venue: 'Circo Voador', genre: 'SAMBA' }),
+]
 
 /** Busca o título na **grade**, não no carrossel: o mesmo evento aparece nos
  *  dois, e a grade é o que a aba filtra. */
@@ -94,11 +98,11 @@ describe('Vitrine', () => {
   it('conta os eventos de cada aba', async () => {
     montar('/')
 
-    // 2 filmes e 1 show: o contador evita clicar às cegas numa aba vazia.
+    // 3 filmes e 1 show: o contador evita clicar às cegas numa aba vazia.
     await waitFor(() =>
-      expect(screen.getByRole('tab', { name: /Cinema/ })).toHaveTextContent('2'),
+      expect(screen.getByRole('tab', { name: /Cinema/ })).toHaveTextContent(String(FILMES.length)),
     )
-    expect(screen.getByRole('tab', { name: /Shows/ })).toHaveTextContent('1')
+    expect(screen.getByRole('tab', { name: /Shows/ })).toHaveTextContent(String(SHOWS.length))
   })
 
   it('troca de aba ao clicar', async () => {
@@ -129,6 +133,47 @@ describe('Vitrine', () => {
     montar('/?q=parasita')
 
     await waitFor(() => expect(buscar).toHaveBeenCalledWith(expect.stringContaining('q=parasita')))
+  })
+
+  it('oferece apenas os gêneros da aba aberta', async () => {
+    montar('/')
+
+    // Gêneros de filme aparecem; de show, não — oferecer "Samba" em Cinema
+    // seria ruído.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Terror' })).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: 'Samba' })).not.toBeInTheDocument()
+  })
+
+  it('omite gênero que não tem nenhum evento', async () => {
+    montar('/')
+
+    // Um filtro que devolve lista vazia é armadilha, não escolha.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Terror' })).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: 'Romance' })).not.toBeInTheDocument()
+  })
+
+  it('repassa o gênero da URL ao servidor', async () => {
+    const buscar = vi.spyOn(api, 'get').mockResolvedValue(FILMES)
+    montar('/?g=TERROR')
+
+    await waitFor(() =>
+      expect(buscar).toHaveBeenCalledWith(expect.stringContaining('genre=TERROR')),
+    )
+  })
+
+  it('marca o gênero ativo', async () => {
+    montar('/?g=TERROR')
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Terror' })).toHaveClass('ativo'),
+    )
+  })
+
+  it('contador da aba ignora o filtro de gênero', async () => {
+    // Senão "Shows (0)" apareceria só porque o gênero escolhido é de filme.
+    montar('/?g=TERROR')
+
+    await waitFor(() => expect(screen.getByRole('tab', { name: /Shows/ })).toHaveTextContent('1'))
   })
 
   it('avisa quando a busca não acha nada', async () => {

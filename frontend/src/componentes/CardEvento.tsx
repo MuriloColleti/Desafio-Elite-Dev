@@ -10,6 +10,7 @@
 import { Link } from 'react-router-dom'
 
 import { moeda } from '../lib/formato'
+import { rotuloGenero } from '../lib/generos'
 import type { Evento } from '../lib/tipos'
 
 /** "sáb, 23 ago" e "19:00" separados, para o selo ter duas linhas. */
@@ -56,7 +57,15 @@ export function CardEvento({ evento }: { evento: Evento }) {
 
       <div className="card-info">
         <h3 className="card-titulo">{evento.title}</h3>
-        <p className="card-local texto-pp texto-3">{evento.venue}</p>
+        <p className="card-local texto-pp texto-3">
+          {rotuloGenero(evento.genre) && (
+            <>
+              <span className="card-genero">{rotuloGenero(evento.genre)}</span>
+              {' · '}
+            </>
+          )}
+          {evento.venue}
+        </p>
         <div className="card-rodape">
           <span className="preco">{moeda(evento.price_cents)}</span>
           <span className="card-cta texto-pp">

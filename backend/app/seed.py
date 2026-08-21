@@ -132,6 +132,7 @@ def povoar(db: Session) -> dict[str, str]:
             venue=venue,
             starts_at=_agora() + timedelta(days=dias),
             layout=layout,
+            genre=item.suggested_genre,
             seat_rows=fileiras,
             seats_per_row=por_fileira,
             # Assento marcado deriva a capacidade do mapa; pista informa direto.
@@ -140,50 +141,58 @@ def povoar(db: Session) -> dict[str, str]:
             status=status,
         )
 
-    # Salas variadas de propósito: mapas de tamanhos diferentes mostram que o
-    # layout não é fixo, e preços distintos deixam a vitrine menos monótona.
-    SESSOES = [
-        ("Cine Belas Artes — Sala 1", 3.2, 3200, 8, 12),
-        ("Cine Belas Artes — Sala 2", 4.8, 2800, 6, 10),
-        ("Espaço Itaú — Sala 3", 6.1, 3600, 7, 14),
-        ("Cinemateca — Sala Grande", 8.4, 2400, 9, 12),
-        ("Cine Odeon — Sala 1", 10.3, 4200, 6, 12),
-        ("Reserva Cultural — Sala 2", 12.6, 3000, 5, 10),
-        ("Cine Joia — Sala Panorâmica", 15.2, 4800, 8, 10),
-        ("Petra Belas Artes — Sala 4", 18.5, 2600, 7, 12),
-    ]
+    # Programação gerada, e não uma lista fixa: com ~50 eventos escrever cada
+    # sala e horário à mão seria repetição sem informação. As variações vêm de
+    # ciclos sobre listas curtas, o que mantém a diversidade sem tabela enorme.
+    SALAS = (
+        "Cine Belas Artes — Sala 1",
+        "Cine Belas Artes — Sala 2",
+        "Espaço Itaú — Sala 3",
+        "Cinemateca — Sala Grande",
+        "Cine Odeon — Sala 1",
+        "Reserva Cultural — Sala 2",
+        "Cine Joia — Sala Panorâmica",
+        "Petra Belas Artes — Sala 4",
+        "Cinesystem — Sala VIP",
+        "Kinoplex — Sala 7",
+    )
+    # (fileiras, assentos por fileira) — salas de tamanhos diferentes mostram
+    # que o mapa não é fixo.
+    MAPAS = ((8, 12), (6, 10), (7, 14), (9, 12), (5, 10), (6, 12), (8, 10), (7, 12))
+    PRECOS = (3200, 2800, 3600, 2400, 4200, 3000, 4800, 2600, 5400, 2200)
 
-    eventos_cinema = [
-        evento_de(
-            item,
-            venue=sala,
-            dias=dias,
-            preco=preco,
-            layout=EventLayout.SEATED,
-            fileiras=fileiras,
-            por_fileira=por_fileira,
+    eventos_cinema = []
+    for n, item in enumerate(filmes):
+        fileiras, por_fileira = MAPAS[n % len(MAPAS)]
+        eventos_cinema.append(
+            evento_de(
+                item,
+                venue=SALAS[n % len(SALAS)],
+                # Espalha as sessões pelas próximas ~7 semanas, em horários de
+                # cinema (tarde e noite), sem duas no mesmo minuto.
+                dias=2 + n * 0.9 + (n % 3) * 0.25,
+                preco=PRECOS[n % len(PRECOS)],
+                layout=EventLayout.SEATED,
+                fileiras=fileiras,
+                por_fileira=por_fileira,
+            )
         )
-        for item, (sala, dias, preco, fileiras, por_fileira) in zip(filmes, SESSOES, strict=False)
-    ]
 
-    PISTAS = [
-        (11.5, 9000, 500),
-        (16.8, 12000, 800),
-        (21.4, 7500, 350),
-        (26.7, 6000, 250),
-    ]
+    CAPACIDADES = (500, 800, 350, 250, 1200, 600, 400, 900)
+    PRECOS_SHOW = (9000, 12000, 7500, 6000, 15000, 8000, 5500, 11000)
 
-    eventos_show = [
-        evento_de(
-            item,
-            venue=item.suggested_venue or "Local a definir",
-            dias=dias,
-            preco=preco,
-            layout=EventLayout.GENERAL,
-            capacidade=cap,
+    eventos_show = []
+    for n, item in enumerate(shows):
+        eventos_show.append(
+            evento_de(
+                item,
+                venue=item.suggested_venue or "Local a definir",
+                dias=3 + n * 3.1,
+                preco=PRECOS_SHOW[n % len(PRECOS_SHOW)],
+                layout=EventLayout.GENERAL,
+                capacidade=CAPACIDADES[n % len(CAPACIDADES)],
+            )
         )
-        for item, (dias, preco, cap) in zip(shows, PISTAS, strict=False)
-    ]
 
     # Rascunho: o painel do organizador precisa mostrar estado misto, senão não
     # se vê a diferença entre publicar e não publicar.
@@ -232,9 +241,12 @@ def povoar(db: Session) -> dict[str, str]:
     # Sem isto a lista "mais procurados" mostraria tudo com 0% vendido, e a
     # seção não demonstraria nada. As proporções são espalhadas de propósito:
     # um quase esgotado, alguns na metade, outros vazios.
-    OCUPACAO_ALVO = (0.94, 0.72, 0.58, 0.41, 0.23, 0.11, 0.0)
+    # Ciclo de proporções: cobre todos os eventos em vez dos primeiros, senão
+    # a vitrine teria uma dezena de itens com procura e trinta com zero.
+    OCUPACAO_ALVO = (0.94, 0.12, 0.58, 0.0, 0.76, 0.31, 0.05, 0.63, 0.22, 0.88, 0.0, 0.44)
 
-    for evento, alvo in zip(eventos_cinema[1:] + eventos_show[1:], OCUPACAO_ALVO, strict=False):
+    for n, evento in enumerate(eventos_cinema[1:] + eventos_show[1:]):
+        alvo = OCUPACAO_ALVO[n % len(OCUPACAO_ALVO)]
         vendidos = int(evento.capacity * alvo)
         if vendidos == 0:
             continue

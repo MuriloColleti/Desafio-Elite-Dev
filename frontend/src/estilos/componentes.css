@@ -1573,3 +1573,52 @@
     font-size: 0.9rem;
   }
 }
+
+/* ---------- Filtro de gênero ---------- */
+
+/* Rolagem horizontal em vez de quebra de linha: onze gêneros em duas ou três
+   linhas empurrariam a grade para baixo da dobra. */
+.generos {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.generos::-webkit-scrollbar {
+  height: 4px;
+}
+.generos::-webkit-scrollbar-thumb {
+  background: var(--borda-2);
+  border-radius: 999px;
+}
+
+.genero {
+  flex-shrink: 0;
+  padding: 7px 15px;
+  border: 1px solid var(--borda);
+  border-radius: 999px;
+  background: var(--superficie);
+  color: var(--texto-2);
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: border-color 0.14s, background-color 0.14s, color 0.14s;
+}
+.genero:hover:not(.ativo) {
+  border-color: var(--borda-2);
+  color: var(--texto);
+}
+.genero.ativo {
+  background: var(--marca);
+  border-color: var(--marca);
+  color: #fff;
+}
+
+/* Gênero no card e no bilhete: informação secundária, então discreta. */
+.card-genero {
+  color: var(--texto-3);
+  font-weight: 600;
+}

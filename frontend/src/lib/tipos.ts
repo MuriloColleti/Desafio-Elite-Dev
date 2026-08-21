@@ -2,6 +2,32 @@
 
 export type Papel = 'ORGANIZER' | 'CUSTOMER' | 'GATE'
 export type Layout = 'SEATED' | 'GENERAL'
+
+/** Gêneros de filme e de show no mesmo tipo — a vitrine filtra por gênero
+ *  independentemente do tipo de evento. */
+export type Genero =
+  | 'ACAO'
+  | 'AVENTURA'
+  | 'ANIMACAO'
+  | 'COMEDIA'
+  | 'DOCUMENTARIO'
+  | 'DRAMA'
+  | 'FANTASIA'
+  | 'FICCAO'
+  | 'ROMANCE'
+  | 'SUSPENSE'
+  | 'TERROR'
+  | 'AXE'
+  | 'ELETRONICA'
+  | 'FORRO'
+  | 'FUNK'
+  | 'MPB'
+  | 'PAGODE'
+  | 'RAP'
+  | 'REGGAE'
+  | 'ROCK'
+  | 'SAMBA'
+  | 'SERTANEJO'
 export type StatusEvento = 'DRAFT' | 'PUBLISHED' | 'CANCELLED'
 export type StatusIngresso = 'VALID' | 'USED' | 'CANCELLED'
 export type ResultadoPortaria = 'VALID' | 'INVALID' | 'ALREADY_USED' | 'WRONG_EVENT'
@@ -22,6 +48,7 @@ export type Evento = {
   venue: string
   starts_at: string
   layout: Layout
+  genre: Genero | null
   price_cents: number
   capacity: number
   status: StatusEvento
@@ -103,6 +130,7 @@ export type ItemCatalogo = {
   suggested_starts_at: string | null
   suggested_venue: string | null
   suggested_layout: Layout
+  suggested_genre: Genero | null
 }
 
 export type BuscaCatalogo = {

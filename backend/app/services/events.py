@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import Forbidden, NotFound, ValidationFailed
 from app.models.entities import Event
-from app.models.enums import EventLayout, EventStatus
+from app.models.enums import EventLayout, EventStatus, Genre
 from app.services import catalog, reservations
 
 
@@ -34,6 +34,7 @@ def listar_vitrine(
     *,
     busca: str | None = None,
     layout: EventLayout | None = None,
+    genero: Genre | None = None,
     limit: int = 24,
     offset: int = 0,
 ) -> list[Event]:
@@ -47,6 +48,9 @@ def listar_vitrine(
 
     if layout is not None:
         stmt = stmt.where(Event.layout == layout)
+
+    if genero is not None:
+        stmt = stmt.where(Event.genre == genero)
 
     # Mais próximos primeiro: quem abre a vitrine quer o que dá para assistir já.
     stmt = stmt.order_by(Event.starts_at.asc()).limit(limit).offset(offset)
@@ -100,6 +104,7 @@ async def criar(
     starts_at: datetime,
     layout: EventLayout,
     price_cents: int,
+    genero: Genre | None = None,
     capacity: int | None = None,
     seat_rows: int | None = None,
     seats_per_row: int | None = None,
@@ -119,6 +124,7 @@ async def criar(
     snapshot_titulo = titulo
     sinopse = None
     poster = None
+    genero_final = genero
 
     if catalog_ref:
         item = await catalog.get(catalog_ref)
@@ -127,6 +133,9 @@ async def criar(
         snapshot_titulo = titulo or item.title
         sinopse = item.synopsis
         poster = item.poster_url
+        # O gênero informado ganha do sugerido: o organizador pode discordar da
+        # classificação do catálogo.
+        genero_final = genero or item.suggested_genre
 
     if not snapshot_titulo:
         raise ValidationFailed("Informe um título ou um item do catálogo.")
@@ -158,6 +167,7 @@ async def criar(
         venue=venue,
         starts_at=starts_at,
         layout=layout,
+        genre=genero_final,
         capacity=capacidade_final,
         price_cents=price_cents,
         seat_rows=seat_rows,

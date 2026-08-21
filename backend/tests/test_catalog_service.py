@@ -170,10 +170,17 @@ def test_termos_diferentes_nao_compartilham_cache(redis_fake, sem_chaves):
 
 
 def test_cache_distingue_o_filtro_de_origem(redis_fake, sem_chaves):
-    """Sem isso, buscar filtrado depois de buscar tudo devolveria o resultado errado."""
-    todos = asyncio.run(catalog.search(""))
-    filmes = asyncio.run(catalog.search("", source=CatalogSource.TMDB))
-    assert len(todos) != len(filmes)
+    """Sem isso, buscar filtrado depois de buscar tudo devolveria o resultado errado.
+
+    Compara o conteúdo e não o tamanho: com o catálogo maior que o limite, as
+    duas listas têm o mesmo comprimento e a asserção por tamanho passaria a ser
+    vazia — foi o que aconteceu quando as fixtures cresceram.
+    """
+    todos = asyncio.run(catalog.search("", limit=99))
+    filmes = asyncio.run(catalog.search("", source=CatalogSource.TMDB, limit=99))
+
+    assert any(i.source is CatalogSource.TICKETMASTER for i in todos)
+    assert all(i.source is CatalogSource.TMDB for i in filmes)
 
 
 def test_cache_corrompido_nao_quebra_a_busca(redis_fake, sem_chaves):

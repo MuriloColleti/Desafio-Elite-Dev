@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.api.deps import DbSession, RequireOrganizer
 from app.models.entities import Event
-from app.models.enums import EventLayout, EventStatus
+from app.models.enums import EventLayout, EventStatus, Genre
 from app.services import events, reservations
 
 router = APIRouter(tags=["events"])
@@ -24,6 +24,7 @@ class EventOut(BaseModel):
     venue: str
     starts_at: datetime
     layout: EventLayout
+    genre: Genre | None
     price_cents: int
     capacity: int
     status: EventStatus
@@ -39,6 +40,7 @@ class EventOut(BaseModel):
             venue=e.venue,
             starts_at=e.starts_at,
             layout=e.layout,
+            genre=e.genre,
             price_cents=e.price_cents,
             capacity=e.capacity,
             status=e.status,
@@ -71,6 +73,7 @@ class EventCreate(BaseModel):
     venue: str = Field(min_length=1, max_length=255)
     starts_at: datetime
     layout: EventLayout
+    genre: Genre | None = None
     price_cents: int = Field(ge=0)
 
     # SEATED: informa o mapa e a capacidade é derivada.
@@ -98,10 +101,13 @@ def listar(
     db: DbSession,
     q: str | None = Query(None, max_length=120, description="Busca por título ou local"),
     layout: EventLayout | None = Query(None),
-    limit: int = Query(24, ge=1, le=60),
+    genre: Genre | None = Query(None, description="Filtra por gênero"),
+    limit: int = Query(60, ge=1, le=120),
     offset: int = Query(0, ge=0),
 ) -> list[EventOut]:
-    achados = events.listar_vitrine(db, busca=q, layout=layout, limit=limit, offset=offset)
+    achados = events.listar_vitrine(
+        db, busca=q, layout=layout, genero=genre, limit=limit, offset=offset
+    )
     return [EventOut.de(e, reservations.disponiveis(db, e)) for e in achados]
 
 
@@ -142,6 +148,7 @@ async def criar(
         venue=payload.venue,
         starts_at=payload.starts_at,
         layout=payload.layout,
+        genero=payload.genre,
         price_cents=payload.price_cents,
         capacity=payload.capacity,
         seat_rows=payload.seat_rows,

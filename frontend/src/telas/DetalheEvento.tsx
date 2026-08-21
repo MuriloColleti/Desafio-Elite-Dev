@@ -13,6 +13,7 @@ import { useSessao } from '../auth/Sessao'
 import { MapaAssentos } from '../componentes/MapaAssentos'
 import { ApiError, api } from '../lib/api'
 import { dataHoraLonga, mensagemDeErro, moeda } from '../lib/formato'
+import { rotuloGenero } from '../lib/generos'
 import type { EventoDetalhe, Reserva } from '../lib/tipos'
 
 export function DetalheEvento() {
@@ -122,9 +123,14 @@ export function DetalheEvento() {
 
         <div className="pilha pilha-16">
           <div className="pilha pilha-8">
-            <span className="etiqueta etiqueta-marca">
-              {evento.layout === 'SEATED' ? '🎬 Lugar marcado' : '🎸 Pista'}
-            </span>
+            <div className="linha-flex" style={{ gap: 8 }}>
+              <span className="etiqueta etiqueta-marca">
+                {evento.layout === 'SEATED' ? '🎬 Lugar marcado' : '🎸 Pista'}
+              </span>
+              {rotuloGenero(evento.genre) && (
+                <span className="etiqueta etiqueta-usado">{rotuloGenero(evento.genre)}</span>
+              )}
+            </div>
             <h1>{evento.title}</h1>
           </div>
 

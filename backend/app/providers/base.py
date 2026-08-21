@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
-from app.models.enums import EventLayout
+from app.models.enums import EventLayout, Genre
 
 
 class CatalogSource(StrEnum):
@@ -41,6 +41,7 @@ class CatalogItem:
     # Filme não traz data de sessão; show do Ticketmaster traz.
     suggested_starts_at: datetime | None = None
     suggested_venue: str | None = None
+    suggested_genre: Genre | None = None
 
     @property
     def suggested_layout(self) -> EventLayout:

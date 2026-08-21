@@ -17,7 +17,8 @@ import { Destaques } from '../componentes/Destaques'
 import { Recomendados } from '../componentes/Recomendados'
 import { ApiError, api } from '../lib/api'
 import { mensagemDeErro } from '../lib/formato'
-import type { Evento } from '../lib/tipos'
+import { generosDe, rotuloGenero } from '../lib/generos'
+import type { Evento, Genero } from '../lib/tipos'
 
 type Aba = 'cinema' | 'shows'
 
@@ -42,21 +43,41 @@ export function Vitrine() {
   // A busca é do cabeçalho e chega por `?q=`: é ação global, funciona de
   // qualquer tela, e o termo na URL torna o resultado compartilhável.
   const busca = params.get('q') ?? ''
+  // O gênero também vive na URL, então o link de "Cinema + Terror" é
+  // compartilhável e o botão voltar desfaz um filtro por vez.
+  const genero = (params.get('g') as Genero | null) ?? null
 
   // "/" e "/cinema" abrem cinema; "/shows" abre shows. Cinema é o padrão porque
   // é o fluxo com mapa de assentos, o mais rico de ver.
   const aba: Aba = pathname === '/shows' ? 'shows' : 'cinema'
 
-  // Todos os eventos são carregados uma vez: são poucos, e ter a lista completa
-  // em memória permite mostrar o contador de cada aba sem uma segunda chamada.
+  // Duas listas de propósito:
+  // - `todos` ignora o filtro de gênero e alimenta os contadores das abas e as
+  //   pílulas de gênero. Sem ela, filtrar por Terror faria o contador de Cinema
+  //   virar 4 e as outras pílulas desaparecerem.
+  // - `eventos` é o resultado filtrado que vai para a grade.
+  const [todos, setTodos] = useState<Evento[]>([])
   const [eventos, setEventos] = useState<Evento[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
 
+  // Lista sem filtro de gênero, para contadores e pílulas.
+  useEffect(() => {
+    const qs = new URLSearchParams({ limit: '120' })
+    if (busca.trim()) qs.set('q', busca.trim())
+
+    api
+      .get<Evento[]>(`/events?${qs}`)
+      .then(setTodos)
+      .catch(() => setTodos([]))
+  }, [busca])
+
   useEffect(() => {
     const t = setTimeout(() => {
       const qs = new URLSearchParams()
+      qs.set('limit', '120')
       if (busca.trim()) qs.set('q', busca.trim())
+      if (genero) qs.set('genre', genero)
 
       api
         .get<Evento[]>(`/events?${qs}`)
@@ -75,7 +96,31 @@ export function Vitrine() {
     }, 250)
 
     return () => clearTimeout(t)
-  }, [busca])
+  }, [busca, genero])
+
+  // Gêneros presentes na aba, para não oferecer filtro que devolve vazio.
+  // Vem de `todos` (sem filtro de gênero aplicado), senão a lista encolheria a
+  // cada clique até sobrar só o selecionado.
+  const generosComEvento = useMemo(
+    () =>
+      new Set(
+        todos
+          .filter((e) => (aba === 'cinema' ? e.layout === 'SEATED' : e.layout === 'GENERAL'))
+          .map((e) => e.genre)
+          .filter((g): g is Genero => g !== null),
+      ),
+    [todos, aba],
+  )
+
+  // Contadores das abas: do total, não do filtrado, senão "Shows (0)" apareceria
+  // só porque o gênero selecionado é de filme.
+  const totalPorAba = useMemo(
+    () => ({
+      cinema: todos.filter((e) => e.layout === 'SEATED').length,
+      shows: todos.filter((e) => e.layout === 'GENERAL').length,
+    }),
+    [todos],
+  )
 
   const porAba = useMemo(
     () => ({
@@ -88,23 +133,33 @@ export function Vitrine() {
   const lista = porAba[aba]
   const config = ABAS[aba]
 
+  /** Monta a URL preservando o que ainda faz sentido. */
+  function url(destino: Aba, g: Genero | null): string {
+    const qs = new URLSearchParams()
+    if (busca.trim()) qs.set('q', busca.trim())
+    // Gênero de filme não existe em shows: ao trocar de aba ele cai, em vez de
+    // filtrar por algo impossível e mostrar lista vazia.
+    if (g && generosDe(destino === 'cinema' ? 'SEATED' : 'GENERAL').includes(g)) {
+      qs.set('g', g)
+    }
+    const base = destino === 'cinema' ? '/' : '/shows'
+    return qs.size > 0 ? `${base}?${qs}` : base
+  }
+
   function trocarAba(nova: Aba) {
-    // Preserva o termo ao trocar de aba: quem buscou "rock" em cinema quer ver
-    // "rock" em shows, não a lista inteira.
-    const qs = busca.trim() ? `?q=${encodeURIComponent(busca.trim())}` : ''
-    navegar((nova === 'cinema' ? '/' : '/shows') + qs)
+    navegar(url(nova, genero))
   }
 
   // Os destaques só aparecem na navegação livre: com busca ativa, quem procura
   // algo específico não quer uma parede de cartazes na frente do resultado.
-  const destaques = busca.trim() ? [] : eventos.slice(0, 8)
+  const destaques = busca.trim() || genero ? [] : todos.slice(0, 8)
 
   return (
     <div className="pilha pilha-32">
       {destaques.length > 0 && (
         <>
           <Destaques eventos={destaques} />
-          <Recomendados eventos={eventos} />
+          <Recomendados eventos={todos} />
         </>
       )}
 
@@ -120,7 +175,7 @@ export function Vitrine() {
         <div className="abas" role="tablist" aria-label="Tipo de evento">
           {(Object.keys(ABAS) as Aba[]).map((chave) => {
             const info = ABAS[chave]
-            const total = porAba[chave].length
+            const total = totalPorAba[chave]
             const ativa = aba === chave
 
             return (
@@ -147,11 +202,36 @@ export function Vitrine() {
           <button
             type="button"
             className="filtro-ativo"
-            onClick={() => navegar(aba === 'shows' ? '/shows' : '/')}
+            onClick={() => navegar(url(aba, genero))}
           >
             “{busca.trim()}” <span aria-hidden="true">✕</span>
           </button>
         )}
+      </div>
+
+      {/* Gêneros da aba aberta. Só os que têm evento aparecem: oferecer um
+          filtro que devolve lista vazia é armadilha, não escolha. */}
+      <div className="generos" role="group" aria-label="Filtrar por gênero">
+        <button
+          type="button"
+          className={genero === null ? 'genero ativo' : 'genero'}
+          onClick={() => navegar(url(aba, null))}
+        >
+          Todos
+        </button>
+
+        {generosDe(aba === 'cinema' ? 'SEATED' : 'GENERAL')
+          .filter((g) => generosComEvento.has(g) || g === genero)
+          .map((g) => (
+            <button
+              key={g}
+              type="button"
+              className={genero === g ? 'genero ativo' : 'genero'}
+              onClick={() => navegar(url(aba, genero === g ? null : g))}
+            >
+              {rotuloGenero(g)}
+            </button>
+          ))}
       </div>
 
       {erro && <div className="aviso aviso-erro">{erro}</div>}
@@ -211,7 +291,7 @@ export function Vitrine() {
         </ul>
       )}
 
-      {!carregando && eventos.length === 0 && !busca.trim() && !erro && (
+      {!carregando && todos.length === 0 && !busca.trim() && !erro && (
         <p className="centro texto-p texto-3">
           É organizador?{' '}
           <Link to="/organizador/novo" className="btn-texto">

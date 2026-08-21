@@ -6,8 +6,8 @@ forma simulada e recebe um ingresso com QR, e a **portaria** valida esse ingress
 
 > **Status:** o fluxo do enunciado funciona **ponta a ponta** — vitrine, criação de evento a partir
 > do catálogo, reserva com mapa de assentos ou pista, pagamento simulado com recusa, ingresso com
-> QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 209 testes;
-> front-end com 46. O que falta está em [Status de implementação](#status-de-implementação) —
+> QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 215 testes;
+> front-end com 51. O que falta está em [Status de implementação](#status-de-implementação) —
 > principalmente cobertura de testes do front e o deploy.
 
 ---
@@ -106,6 +106,13 @@ competia com os próprios cartazes. Mostra 4 por vez e desliza um a cada 4 segun
 teclado** — animação que rouba o cartaz debaixo do cursor de quem ia clicar é pior que animação
 nenhuma — e respeita `prefers-reduced-motion`. Some quando há busca ativa: quem procura algo
 específico não quer uma parede de cartazes na frente do resultado.
+
+**Gênero como pílulas, não como `<select>`.** Onze gêneros por aba num campo de seleção
+esconderiam as opções atrás de um clique; em pílulas roláveis a pessoa vê o que existe. Só
+aparecem os gêneros **que têm evento** — oferecer um filtro que devolve lista vazia é armadilha,
+não escolha. E o gênero vive na URL junto da aba, então o link de *Cinema + Terror* é
+compartilhável e o botão voltar desfaz um filtro por vez. Ao trocar de aba, um gênero que não
+existe do outro lado (*Terror* em Shows) simplesmente cai.
 
 **Recomendados em formato diferente do carrossel.** Abaixo dos destaques, uma lista numerada e
 compacta — miniatura, posição e o motivo da recomendação. Repetir o mesmo card duas vezes na
@@ -380,12 +387,12 @@ em serviço nenhum. O que não funciona sem chave é apenas a busca por títulos
 
 E também:
 
-- **12 eventos publicados**, derivados das fixtures do catálogo (título, sinopse e pôster vêm de
-  lá, não duplicados no seed):
-  - **8 sessões de cinema** com mapa de assentos, em salas de tamanhos diferentes (5×10 até
-    9×12) e preços variados — o carrossel da vitrine mostra 8 cartazes, e uma vitrine com dois
-    eventos não demonstra nada;
-  - **4 shows** com pista por quantidade, de 250 a 800 lugares.
+- **~64 eventos publicados**, derivados das fixtures do catálogo (título, sinopse, pôster e
+  gênero vêm de lá, não duplicados no seed):
+  - **49 sessões de cinema** com mapa de assentos, em dez salas de tamanhos diferentes (5×10 até
+    9×12) e preços variados;
+  - **15 shows** com pista por quantidade, de 250 a 1200 lugares;
+  - **todos os 21 gêneros** têm ao menos um evento, então nenhum filtro devolve lista vazia.
   - No primeiro filme, **10 lugares já ocupados** de propósito, espalhados em fileiras
     diferentes: mapa vazio não mostra que a indisponibilidade funciona.
 - **1 evento em rascunho**, para se ver o painel do organizador com estado misto.
@@ -541,7 +548,7 @@ GET    /auth/me                       → usuário atual
 
 GET    /catalog/search?q=&source=     → busca em TMDb e/ou Ticketmaster  [ORGANIZER]
 
-GET    /events                        → vitrine: publicados e futuros, com busca e filtro
+GET    /events?q=&layout=&genre=      → vitrine: publicados e futuros, com busca e filtros
 GET    /events/:id                    → detalhe + mapa de assentos com os ocupados
 
 GET    /organizer/events              → todos os meus eventos    [ORGANIZER]
@@ -741,8 +748,8 @@ de que já esteja pronto.
 | Front-end: vitrine, reserva, checkout, ingressos | ✅ pronto      |
 | Front-end: portaria e painel do organizador    | ✅ pronto       |
 | Leitura do QR pela câmera                      | ✅ pronto       |
-| Testes do back-end (209)                       | ✅ pronto       |
-| Testes do front-end (46)                       | 🟡 parcial      |
+| Testes do back-end (215)                       | ✅ pronto       |
+| Testes do front-end (51)                       | 🟡 parcial      |
 | Docker Compose (um comando)                    | ✅ pronto       |
 | Configuração de deploy (Render + Vercel)       | ✅ pronto       |
 | Deploy público publicado                       | 🔜 pendente     |

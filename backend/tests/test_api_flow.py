@@ -491,3 +491,91 @@ def test_cancelar_e_idempotente(app_semeado):
 
     assert clientes["organizador"].delete(url).status_code == 200
     assert clientes["organizador"].delete(url).status_code == 200
+
+
+# --- Gênero ---
+
+
+def test_filtra_a_vitrine_por_genero(app_semeado):
+    clientes, _ = app_semeado
+
+    r = clientes["anon"].get("/events?genre=TERROR&limit=120").json()
+
+    assert r, "o seed deveria ter filme de terror"
+    assert all(e["genre"] == "TERROR" for e in r)
+
+
+def test_genero_inexistente_e_rejeitado(app_semeado):
+    """Enum no schema: valor fora da lista é 422, não lista vazia."""
+    clientes, _ = app_semeado
+    assert clientes["anon"].get("/events?genre=INVENTADO").status_code == 422
+
+
+def test_genero_de_show_nao_traz_filme(app_semeado):
+    clientes, _ = app_semeado
+
+    r = clientes["anon"].get("/events?genre=SAMBA&limit=120").json()
+
+    assert all(e["layout"] == "GENERAL" for e in r)
+
+
+def test_evento_criado_do_catalogo_herda_o_genero(app_semeado):
+    """O catálogo sugere; o organizador não precisa reclassificar à mão."""
+    clientes, _ = app_semeado
+
+    r = clientes["organizador"].post(
+        "/organizer/events",
+        json={
+            "catalog_ref": "tmdb:movie:419430",  # Corra! — terror nas fixtures
+            "venue": "Sala X",
+            "starts_at": _futuro(),
+            "layout": "SEATED",
+            "price_cents": 3000,
+            "seat_rows": 5,
+            "seats_per_row": 10,
+        },
+    )
+
+    assert r.status_code == 201
+    assert r.json()["genre"] == "TERROR"
+
+
+def test_genero_informado_ganha_do_sugerido(app_semeado):
+    """O organizador pode discordar da classificação do catálogo."""
+    clientes, _ = app_semeado
+
+    r = clientes["organizador"].post(
+        "/organizer/events",
+        json={
+            "catalog_ref": "tmdb:movie:419430",
+            "genre": "DRAMA",
+            "venue": "Sala X",
+            "starts_at": _futuro(),
+            "layout": "SEATED",
+            "price_cents": 3000,
+            "seat_rows": 5,
+            "seats_per_row": 10,
+        },
+    )
+
+    assert r.json()["genre"] == "DRAMA"
+
+
+def test_evento_sem_catalogo_pode_nao_ter_genero(app_semeado):
+    """Exigir gênero obrigaria o organizador a escolher no chute."""
+    clientes, _ = app_semeado
+
+    r = clientes["organizador"].post(
+        "/organizer/events",
+        json={
+            "title": "Evento Livre",
+            "venue": "Sala X",
+            "starts_at": _futuro(),
+            "layout": "GENERAL",
+            "price_cents": 1000,
+            "capacity": 50,
+        },
+    )
+
+    assert r.status_code == 201
+    assert r.json()["genre"] is None
