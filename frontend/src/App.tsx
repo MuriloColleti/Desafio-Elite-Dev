@@ -31,7 +31,7 @@ export default function App() {
 
             {/* Cliente */}
             <Route
-              path="/checkout/:reservaId"
+              path="/checkout/:reservaIds"
               element={
                 <Protegida papel="CUSTOMER">
                   <Checkout />

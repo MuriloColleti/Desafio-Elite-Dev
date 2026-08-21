@@ -14,7 +14,7 @@ import { MapaAssentos } from '../componentes/MapaAssentos'
 import { ApiError, api } from '../lib/api'
 import { dataHoraLonga, mensagemDeErro, moeda } from '../lib/formato'
 import { rotuloGenero } from '../lib/generos'
-import type { EventoDetalhe, Reserva } from '../lib/tipos'
+import type { EventoDetalhe, GrupoReservas } from '../lib/tipos'
 
 export function DetalheEvento() {
   const { id = '' } = useParams()
@@ -22,7 +22,7 @@ export function DetalheEvento() {
   const { usuario } = useSessao()
 
   const [evento, setEvento] = useState<EventoDetalhe | null>(null)
-  const [assento, setAssento] = useState<string | null>(null)
+  const [assentos, setAssentos] = useState<string[]>([])
   const [quantidade, setQuantidade] = useState(1)
   const [erro, setErro] = useState<string | null>(null)
   const [reservando, setReservando] = useState(false)
@@ -61,24 +61,27 @@ export function DetalheEvento() {
     setErro(null)
 
     try {
-      const reserva = await api.post<Reserva>('/reservations', {
+      const grupo = await api.post<GrupoReservas>('/reservations', {
         event_id: evento.id,
-        seat_label: evento.layout === 'SEATED' ? assento : null,
+        seat_labels: evento.layout === 'SEATED' ? assentos : [],
         quantity: evento.layout === 'SEATED' ? 1 : quantidade,
       })
-      // O contador do checkout precisa do prazo; a reserva pendente não tem
-      // endpoint próprio de leitura, então passamos por aqui.
-      if (reserva.expires_at) {
-        sessionStorage.setItem(`reserva:${reserva.id}`, reserva.expires_at)
+
+      // O checkout recebe os ids na URL e o prazo pelo sessionStorage: a
+      // reserva pendente não tem endpoint próprio de leitura.
+      const ids = grupo.reservations.map((r) => r.id)
+      if (grupo.expires_at) {
+        sessionStorage.setItem(`grupo:${ids.join(',')}`, grupo.expires_at)
       }
-      navegar(`/checkout/${reserva.id}`)
+      navegar(`/checkout/${ids.join(',')}`)
     } catch (e) {
       if (e instanceof ApiError) {
         setErro(mensagemDeErro(e.code, e.message))
-        // Perder o assento é o caso em que a tela precisa se atualizar: o mapa
-        // mostrava o lugar como livre e ele não está mais.
+        // Perder um assento é o caso em que a tela precisa se atualizar: o
+        // mapa mostrava o lugar como livre e ele não está mais. Limpa a escolha
+        // inteira porque a reserva é tudo ou nada — nada ficou reservado.
         if (e.code === 'SEAT_TAKEN') {
-          setAssento(null)
+          setAssentos([])
           await carregar()
         }
       } else {
@@ -104,9 +107,13 @@ export function DetalheEvento() {
 
   const esgotado = evento.available <= 0
   const podeReservar =
-    !esgotado && (evento.layout === 'SEATED' ? assento !== null : quantidade >= 1)
-  const total = evento.price_cents * (evento.layout === 'SEATED' ? 1 : quantidade)
+    !esgotado && (evento.layout === 'SEATED' ? assentos.length > 0 : quantidade >= 1)
+  const total =
+    evento.price_cents * (evento.layout === 'SEATED' ? assentos.length : quantidade)
   const maxPorCompra = Math.min(10, evento.available)
+  // Mesmo limite do back-end (MAX_ASSENTOS): mais que isso, uma pessoa
+  // bloquearia meia fileira durante o hold.
+  const maxAssentos = Math.min(6, evento.available)
 
   return (
     <div className="pilha pilha-24">
@@ -180,11 +187,25 @@ export function DetalheEvento() {
             <h2>{evento.layout === 'SEATED' ? 'Escolha seu lugar' : 'Quantos ingressos?'}</h2>
 
             {evento.layout === 'SEATED' && evento.seat_map ? (
-              <MapaAssentos
-                mapa={evento.seat_map}
-                selecionado={assento}
-                onSelecionar={(r) => setAssento(r === assento ? null : r)}
-              />
+              <>
+                <MapaAssentos
+                  mapa={evento.seat_map}
+                  selecionados={assentos}
+                  limite={maxAssentos}
+                  onAlternar={(r) =>
+                    setAssentos((atual) =>
+                      atual.includes(r) ? atual.filter((a) => a !== r) : [...atual, r],
+                    )
+                  }
+                />
+                <p className="texto-pp texto-3 centro">
+                  {assentos.length === 0
+                    ? `Escolha até ${maxAssentos} assentos.`
+                    : assentos.length >= maxAssentos
+                      ? `Limite de ${maxAssentos} assentos por compra.`
+                      : `${assentos.length} escolhido${assentos.length > 1 ? 's' : ''} · até ${maxAssentos}`}
+                </p>
+              </>
             ) : (
               <div className="quantidade">
                 <button
@@ -226,8 +247,10 @@ export function DetalheEvento() {
             <div className="linha-flex entre texto-p">
               <span className="texto-2">
                 {evento.layout === 'SEATED'
-                  ? assento
-                    ? `Assento ${assento}`
+                  ? assentos.length > 0
+                    ? // Ordenado: a lista muda conforme a ordem dos cliques, e
+                      // "F7, A1, C3" no resumo parece desorganizado.
+                      `Assento${assentos.length > 1 ? 's' : ''} ${[...assentos].sort().join(', ')}`
                     : 'Nenhum assento'
                   : `${quantidade} × ingresso`}
               </span>
@@ -247,11 +270,18 @@ export function DetalheEvento() {
               onClick={reservar}
               disabled={!podeReservar || reservando}
             >
-              {reservando ? 'Reservando…' : usuario ? 'Reservar' : 'Entrar e reservar'}
+              {reservando
+                ? 'Reservando…'
+                : !usuario
+                  ? 'Entrar e reservar'
+                  : assentos.length > 1
+                    ? `Reservar ${assentos.length} assentos`
+                    : 'Reservar'}
             </button>
 
             <p className="texto-pp texto-3" style={{ margin: 0 }}>
-              O lugar fica reservado por 10 minutos para você concluir o pagamento.
+              {assentos.length > 1 ? 'Os lugares ficam' : 'O lugar fica'} reservado por 10 minutos
+              para você concluir o pagamento.
             </p>
           </aside>
         </div>

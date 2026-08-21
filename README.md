@@ -10,8 +10,8 @@ simulada e recebe um ingresso com QR, e a portaria valida esse ingresso na entra
 >
 > **Status:** o fluxo do enunciado funciona **ponta a ponta** — vitrine, criação de evento a partir
 > do catálogo, reserva com mapa de assentos ou pista, pagamento simulado com recusa, ingresso com
-> QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 214 testes;
-> front-end com 62. O que falta está em [Status de implementação](#status-de-implementação) —
+> QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 222 testes;
+> front-end com 66. O que falta está em [Status de implementação](#status-de-implementação) —
 > principalmente cobertura de testes do front e o deploy.
 
 ---
@@ -459,8 +459,9 @@ Roteiro sugerido para avaliação, cerca de 5 minutos:
 2. **Organizador** — entre como `organizador@palco.dev`. Em *Criar evento*, busque um título no
    catálogo (filme ou show), defina data, local, capacidade e preço, publique. Ele aparece na
    vitrine.
-3. **Cliente** — entre como `bruno@palco.dev`, abra o evento de cinema, escolha um assento no
-   mapa (os ocupados estão bloqueados) e siga para o checkout.
+3. **Cliente** — entre como `bruno@palco.dev`, abra uma sessão e escolha **até 6 assentos** no
+   mapa (os ocupados estão bloqueados). Clique de novo para desmarcar. Siga para o checkout: os
+   assentos escolhidos viram uma cobrança só.
 4. **Pagamento recusado** — no checkout, use o cartão `4000 0000 0000 0002`. A recusa aparece e o
    assento volta a ficar disponível no mapa.
 
@@ -559,6 +560,25 @@ escondendo de quem está na porta o problema real: está na porta errada. E vali
 As três recusas respondem **200**, não 4xx: são resultado de negócio que a portaria precisa exibir.
 Com 4xx o front cairia no tratamento de falha genérica em vez de mostrar o motivo.
 
+**Uma reserva por assento, um pagamento por compra.** A constraint de unicidade é
+`(event_id, seat_label)`, então um registro não pode representar dois lugares — comprar quatro
+assentos cria quatro reservas. O que agrupa a compra é o **pagamento**: a pessoa digita o cartão
+uma vez e vê uma linha no extrato.
+
+Duas garantias vêm daí, e as duas são tudo-ou-nada:
+
+- **A reserva do grupo.** Se o terceiro de quatro assentos se perder para outra pessoa, os dois
+  primeiros não ficam presos num hold que o cliente nunca vai pagar — ele queria os quatro
+  juntos. O `rollback` desfaz o lote.
+- **A recusa do pagamento.** Cancela todas as reservas do grupo. Deixar duas pagas e duas
+  canceladas entregaria metade do pedido, e quem compra quatro lugares quer sentar junto.
+
+O registro de `Payment` é **um por reserva**, com o valor daquela reserva; o total do grupo é a
+soma. Assim cancelar um ingresso depois não exige ratear uma cobrança única.
+
+**Limite de 6 assentos por compra.** É a ordem que cinemas praticam, e evita que uma pessoa
+bloqueie meia fileira durante os 10 minutos do hold.
+
 **Preço em centavos, inteiro.** `price_cents` em vez de float. Ninguém quer descobrir `0.1 + 0.2`
 num total de carrinho.
 
@@ -595,10 +615,11 @@ POST   /organizer/events              → cria (publish opcional)  [ORGANIZER]
 PATCH  /organizer/events/:id          → edita / publica          [ORGANIZER]
 DELETE /organizer/events/:id          → cancela                  [ORGANIZER]
 
-POST   /reservations                  → cria hold (409 SEAT_TAKEN se perdeu)  [CUSTOMER]
+POST   /reservations                  → cria hold de 1..6 assentos, tudo ou nada  [CUSTOMER]
+                                        (409 SEAT_TAKEN se qualquer um se perdeu)
 DELETE /reservations/:id              → libera hold, devolve ao estoque       [CUSTOMER]
 
-POST   /payments                      → cobrança simulada (aprova ou recusa)
+POST   /payments                      → cobrança simulada do grupo de reservas
 
 GET    /tickets/me                    → meus ingressos [CUSTOMER]
 GET    /tickets/:id/qr                → PNG do QR      [CUSTOMER]
@@ -787,8 +808,8 @@ de que já esteja pronto.
 | Front-end: vitrine, reserva, checkout, ingressos | ✅ pronto      |
 | Front-end: portaria e painel do organizador    | ✅ pronto       |
 | Leitura do QR pela câmera                      | ✅ pronto       |
-| Testes do back-end (214)                       | ✅ pronto       |
-| Testes do front-end (62)                       | 🟡 parcial      |
+| Testes do back-end (222)                       | ✅ pronto       |
+| Testes do front-end (66)                       | 🟡 parcial      |
 | Docker Compose (um comando)                    | ✅ pronto       |
 | Configuração de deploy (Render + Vercel)       | ✅ pronto       |
 | Deploy público publicado                       | 🔜 pendente     |

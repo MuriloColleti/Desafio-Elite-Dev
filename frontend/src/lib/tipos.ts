@@ -85,12 +85,19 @@ export type Reserva = {
   total_cents: number
 }
 
+/** Resposta da criação de reserva. Sempre lista, mesmo para um assento: o
+ *  checkout trata os dois casos do mesmo jeito. */
+export type GrupoReservas = {
+  reservations: Reserva[]
+  total_cents: number
+  expires_at: string | null
+}
+
 export type Pagamento = {
-  payment_id: string
   status: 'APPROVED' | 'DECLINED'
   amount_cents: number
-  ticket_id: string
-  ticket_code: string
+  ticket_ids: string[]
+  ticket_codes: string[]
 }
 
 export type Ingresso = {

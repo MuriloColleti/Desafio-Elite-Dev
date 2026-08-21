@@ -9,23 +9,41 @@ from app.api.deps import DbSession, RequireCustomer
 from app.models.entities import Reservation
 from app.models.enums import ReservationStatus
 from app.services import reservations
+from app.services.reservations import MAX_ASSENTOS
 
 router = APIRouter(prefix="/reservations", tags=["reservations"])
 
 
 class ReservationCreate(BaseModel):
     event_id: str
-    # SEATED usa seat_label; GENERAL usa quantity. O serviço rejeita a
+    # SEATED usa `seat_labels`; GENERAL usa `quantity`. O serviço rejeita a
     # combinação errada para o layout do evento — aqui só barramos o pedido que
     # não faz sentido em nenhum caso.
-    seat_label: str | None = Field(None, max_length=16)
+    #
+    # `seat_labels` é lista porque comprar quatro assentos gera quatro reservas:
+    # a constraint de unicidade é `(event_id, seat_label)`, então um registro não
+    # pode representar dois lugares.
+    seat_labels: list[str] = Field(default_factory=list, max_length=MAX_ASSENTOS)
     quantity: int = Field(1, ge=1, le=10)
 
     @model_validator(mode="after")
     def _coerente(self) -> "ReservationCreate":
-        if self.seat_label and self.quantity != 1:
-            raise ValueError("Um assento marcado corresponde a um ingresso.")
+        if self.seat_labels and self.quantity != 1:
+            raise ValueError("Assento marcado não usa quantidade.")
         return self
+
+
+class GrupoReservas(BaseModel):
+    """Resposta da criação.
+
+    Sempre lista, mesmo para um assento: o checkout trata os dois casos do mesmo
+    jeito, e uma resposta que muda de forma conforme a quantidade obrigaria o
+    front a ramificar sem motivo.
+    """
+
+    reservations: list["ReservationOut"]
+    total_cents: int
+    expires_at: datetime | None
 
 
 class ReservationOut(BaseModel):
@@ -50,19 +68,39 @@ class ReservationOut(BaseModel):
         )
 
 
-@router.post("", response_model=ReservationOut, status_code=201)
+@router.post("", response_model=GrupoReservas, status_code=201)
 def criar(
     payload: ReservationCreate, session: RequireCustomer, db: DbSession
-) -> ReservationOut:
-    """Reserva o lugar. Responde 409 SEAT_TAKEN se outra pessoa chegou antes."""
-    reserva = reservations.criar(
-        db,
-        event_id=payload.event_id,
-        customer_id=session.user_id,
-        seat_label=payload.seat_label,
-        quantity=payload.quantity,
+) -> GrupoReservas:
+    """Reserva os lugares. Responde 409 SEAT_TAKEN se alguém chegou antes.
+
+    Para assento marcado é **tudo ou nada**: se um dos assentos do grupo se
+    perder, nenhum fica reservado — quem pediu quatro lugares quer os quatro.
+    """
+    if payload.seat_labels:
+        reservas = reservations.criar_varias(
+            db,
+            event_id=payload.event_id,
+            customer_id=session.user_id,
+            seat_labels=payload.seat_labels,
+        )
+    else:
+        reservas = [
+            reservations.criar(
+                db,
+                event_id=payload.event_id,
+                customer_id=session.user_id,
+                seat_label=None,
+                quantity=payload.quantity,
+            )
+        ]
+
+    saida = [ReservationOut.de(r) for r in reservas]
+    return GrupoReservas(
+        reservations=saida,
+        total_cents=sum(r.total_cents for r in saida),
+        expires_at=reservas[0].expires_at,
     )
-    return ReservationOut.de(reserva)
 
 
 @router.delete("/{reservation_id}", response_model=ReservationOut)

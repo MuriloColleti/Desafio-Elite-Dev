@@ -6,6 +6,7 @@
  * fileiras numeradas de A (frente) para trás.
  *
  * Escolhas de interação:
+ * - **Vários assentos por compra.** Clicar alterna; o limite é do chamador.
  * - Assento ocupado não é clicável nem focável — ninguém deveria "tentar" um
  *   lugar vendido e receber erro.
  * - Rótulo de fileira nas duas laterais, como em sala de verdade: o olho
@@ -19,12 +20,16 @@ import type { MapaAssentos as Mapa } from '../lib/tipos'
 
 type Props = {
   mapa: Mapa
-  selecionado: string | null
-  onSelecionar: (rotulo: string) => void
+  selecionados: string[]
+  /** Quantos ainda cabem. Ao chegar a zero, os livres ficam desabilitados. */
+  limite: number
+  onAlternar: (rotulo: string) => void
 }
 
-export function MapaAssentos({ mapa, selecionado, onSelecionar }: Props) {
+export function MapaAssentos({ mapa, selecionados, limite, onAlternar }: Props) {
   const ocupados = new Set(mapa.taken)
+  const escolhidos = new Set(selecionados)
+  const cheio = selecionados.length >= limite
 
   return (
     <div className="mapa">
@@ -32,7 +37,7 @@ export function MapaAssentos({ mapa, selecionado, onSelecionar }: Props) {
         <span>tela</span>
       </div>
 
-      <div className="mapa-grade" role="group" aria-label="Escolha do assento">
+      <div className="mapa-grade" role="group" aria-label="Escolha dos assentos">
         {Array.from({ length: mapa.rows }, (_, fileira) => (
           <div className="mapa-fileira" key={fileira}>
             <span className="mapa-letra" aria-hidden="true">
@@ -42,7 +47,10 @@ export function MapaAssentos({ mapa, selecionado, onSelecionar }: Props) {
             {Array.from({ length: mapa.seats_per_row }, (_, numero) => {
               const rotulo = rotuloAssento(fileira, numero)
               const ocupado = ocupados.has(rotulo)
-              const ativo = selecionado === rotulo
+              const ativo = escolhidos.has(rotulo)
+              // No limite, os livres param de aceitar clique — mas os já
+              // escolhidos seguem clicáveis, senão não haveria como desfazer.
+              const bloqueado = ocupado || (cheio && !ativo)
 
               return (
                 <button
@@ -51,12 +59,16 @@ export function MapaAssentos({ mapa, selecionado, onSelecionar }: Props) {
                   className={
                     'assento' + (ocupado ? ' ocupado' : '') + (ativo ? ' selecionado' : '')
                   }
-                  disabled={ocupado}
+                  disabled={bloqueado}
                   aria-label={
-                    ocupado ? `Assento ${rotulo}, ocupado` : `Assento ${rotulo}, disponível`
+                    ocupado
+                      ? `Assento ${rotulo}, ocupado`
+                      : ativo
+                        ? `Assento ${rotulo}, escolhido`
+                        : `Assento ${rotulo}, disponível`
                   }
                   aria-pressed={ativo}
-                  onClick={() => onSelecionar(rotulo)}
+                  onClick={() => onAlternar(rotulo)}
                 >
                   {numero + 1}
                 </button>

@@ -14,16 +14,22 @@ CARTAO_RECUSADO = "4000000000000002"
 
 
 def _reservar(cliente, event_id, **kwargs):
+    """Cria e devolve a primeira reserva do grupo.
+
+    A rota sempre responde lista — comprar N assentos são N reservas — e os
+    testes de um assento só querem a única.
+    """
     r = cliente.post("/reservations", json={"event_id": event_id, **kwargs})
     assert r.status_code == 201, r.text
-    return r.json()
+    return r.json()["reservations"][0]
 
 
-def _pagar(cliente, reservation_id, cartao=CARTAO_OK):
+def _pagar(cliente, *reservation_ids, cartao=CARTAO_OK):
+    """Uma cobrança para o grupo de reservas."""
     return cliente.post(
         "/payments",
         json={
-            "reservation_id": reservation_id,
+            "reservation_ids": list(reservation_ids),
             "card_number": cartao,
             "card_holder": "TITULAR TESTE",
         },
@@ -35,7 +41,7 @@ def _pagar(cliente, reservation_id, cartao=CARTAO_OK):
 
 def test_pagamento_aprovado_emite_ingresso(app_semeado):
     clientes, refs = app_semeado
-    reserva = _reservar(clientes["bruno"], refs["evento_cinema"], seat_label="B5")
+    reserva = _reservar(clientes["bruno"], refs["evento_cinema"], seat_labels=["B5"])
 
     r = _pagar(clientes["bruno"], reserva["id"])
 
@@ -43,7 +49,7 @@ def test_pagamento_aprovado_emite_ingresso(app_semeado):
     corpo = r.json()
     assert corpo["status"] == "APPROVED"
     assert corpo["amount_cents"] == 3200
-    assert corpo["ticket_id"] and corpo["ticket_code"]
+    assert corpo["ticket_ids"] and corpo["ticket_codes"]
 
 
 def test_total_multiplica_pela_quantidade(app_semeado):
@@ -64,9 +70,9 @@ def test_total_multiplica_pela_quantidade(app_semeado):
 def test_recusa_responde_402_com_motivo(app_semeado):
     """O enunciado pede a recusa como caminho previsto, não como falha genérica."""
     clientes, refs = app_semeado
-    reserva = _reservar(clientes["bruno"], refs["evento_cinema"], seat_label="B5")
+    reserva = _reservar(clientes["bruno"], refs["evento_cinema"], seat_labels=["B5"])
 
-    r = _pagar(clientes["bruno"], reserva["id"], CARTAO_RECUSADO)
+    r = _pagar(clientes["bruno"], reserva["id"], cartao=CARTAO_RECUSADO)
 
     assert r.status_code == 402
     assert r.json()["error"]["code"] == "PAYMENT_DECLINED"
@@ -76,9 +82,9 @@ def test_recusa_responde_402_com_motivo(app_semeado):
 def test_recusa_devolve_o_assento_ao_estoque(app_semeado):
     """Sem isto surge o assento fantasma: preso a um pagamento que falhou."""
     clientes, refs = app_semeado
-    reserva = _reservar(clientes["bruno"], refs["evento_cinema"], seat_label="B5")
+    reserva = _reservar(clientes["bruno"], refs["evento_cinema"], seat_labels=["B5"])
 
-    _pagar(clientes["bruno"], reserva["id"], CARTAO_RECUSADO)
+    _pagar(clientes["bruno"], reserva["id"], cartao=CARTAO_RECUSADO)
 
     mapa = clientes["anon"].get(f"/events/{refs['evento_cinema']}").json()["seat_map"]
     assert "B5" not in mapa["taken"]
@@ -88,7 +94,7 @@ def test_recusa_devolve_o_assento_ao_estoque(app_semeado):
         clientes["ana"]
         .post(
             "/reservations",
-            json={"event_id": refs["evento_cinema"], "seat_label": "B5"},
+            json={"event_id": refs["evento_cinema"], "seat_labels": ["B5"]},
         )
         .status_code
         == 201
@@ -97,9 +103,9 @@ def test_recusa_devolve_o_assento_ao_estoque(app_semeado):
 
 def test_recusa_nao_emite_ingresso(app_semeado):
     clientes, refs = app_semeado
-    reserva = _reservar(clientes["bruno"], refs["evento_cinema"], seat_label="B5")
+    reserva = _reservar(clientes["bruno"], refs["evento_cinema"], seat_labels=["B5"])
 
-    _pagar(clientes["bruno"], reserva["id"], CARTAO_RECUSADO)
+    _pagar(clientes["bruno"], reserva["id"], cartao=CARTAO_RECUSADO)
 
     assert clientes["bruno"].get("/tickets/me").json() == []
 
@@ -118,7 +124,7 @@ def test_cada_cartao_de_teste_tem_seu_motivo(app_semeado, cartao, trecho):
     clientes, refs = app_semeado
     reserva = _reservar(clientes["bruno"], refs["evento_pista"], quantity=1)
 
-    r = _pagar(clientes["bruno"], reserva["id"], cartao)
+    r = _pagar(clientes["bruno"], reserva["id"], cartao=cartao)
 
     assert r.status_code == 402
     assert trecho in r.json()["error"]["message"].lower()
@@ -127,9 +133,9 @@ def test_cada_cartao_de_teste_tem_seu_motivo(app_semeado, cartao, trecho):
 def test_aceita_cartao_com_espacos(app_semeado):
     """O campo de cartão costuma formatar em grupos de quatro."""
     clientes, refs = app_semeado
-    reserva = _reservar(clientes["bruno"], refs["evento_cinema"], seat_label="B5")
+    reserva = _reservar(clientes["bruno"], refs["evento_cinema"], seat_labels=["B5"])
 
-    r = _pagar(clientes["bruno"], reserva["id"], "4242 4242 4242 4242")
+    r = _pagar(clientes["bruno"], reserva["id"], cartao="4242 4242 4242 4242")
 
     assert r.status_code == 201
 
@@ -139,7 +145,7 @@ def test_aceita_cartao_com_espacos(app_semeado):
 
 def test_nao_paga_reserva_cancelada(app_semeado):
     clientes, refs = app_semeado
-    reserva = _reservar(clientes["bruno"], refs["evento_cinema"], seat_label="B5")
+    reserva = _reservar(clientes["bruno"], refs["evento_cinema"], seat_labels=["B5"])
     clientes["bruno"].delete(f"/reservations/{reserva['id']}")
 
     assert _pagar(clientes["bruno"], reserva["id"]).status_code == 422
@@ -147,7 +153,7 @@ def test_nao_paga_reserva_cancelada(app_semeado):
 
 def test_nao_paga_duas_vezes(app_semeado):
     clientes, refs = app_semeado
-    reserva = _reservar(clientes["bruno"], refs["evento_cinema"], seat_label="B5")
+    reserva = _reservar(clientes["bruno"], refs["evento_cinema"], seat_labels=["B5"])
 
     assert _pagar(clientes["bruno"], reserva["id"]).status_code == 201
     assert _pagar(clientes["bruno"], reserva["id"]).status_code == 422
@@ -155,7 +161,7 @@ def test_nao_paga_duas_vezes(app_semeado):
 
 def test_nao_paga_reserva_de_outro_cliente(app_semeado):
     clientes, refs = app_semeado
-    reserva = _reservar(clientes["ana"], refs["evento_cinema"], seat_label="B5")
+    reserva = _reservar(clientes["ana"], refs["evento_cinema"], seat_labels=["B5"])
 
     r = _pagar(clientes["bruno"], reserva["id"])
 
@@ -363,7 +369,7 @@ def test_compra_completa_ate_a_entrada(app_semeado):
     """Reservar → pagar → receber ingresso → validar na entrada."""
     clientes, refs = app_semeado
 
-    reserva = _reservar(clientes["bruno"], refs["evento_cinema"], seat_label="B5")
+    reserva = _reservar(clientes["bruno"], refs["evento_cinema"], seat_labels=["B5"])
     pagamento = _pagar(clientes["bruno"], reserva["id"]).json()
 
     ingressos = clientes["bruno"].get("/tickets/me").json()
@@ -372,10 +378,147 @@ def test_compra_completa_ate_a_entrada(app_semeado):
     assert ingressos[0]["status"] == "VALID"
 
     r = clientes["portaria"].post(
-        "/gate/validate", json={"code": pagamento["ticket_code"]}
+        "/gate/validate", json={"code": pagamento["ticket_codes"][0]}
     )
     assert r.json()["result"] == "VALID"
     assert r.json()["seat_label"] == "B5"
 
     # E o ingresso passa a constar como usado para o cliente.
     assert clientes["bruno"].get("/tickets/me").json()[0]["status"] == "USED"
+
+
+# --- Compra de vários assentos ---
+
+
+def test_reserva_varios_assentos_de_uma_vez(app_semeado):
+    """O caso que faltava: comprar mais de um lugar na mesma ida ao cinema."""
+    clientes, refs = app_semeado
+
+    r = clientes["bruno"].post(
+        "/reservations",
+        json={"event_id": refs["evento_cinema"], "seat_labels": ["A1", "A2", "A3"]},
+    )
+
+    assert r.status_code == 201
+    corpo = r.json()
+    # Uma reserva por assento: a constraint de unicidade é (event_id, seat_label),
+    # então um registro não pode representar três lugares.
+    assert len(corpo["reservations"]) == 3
+    assert {x["seat_label"] for x in corpo["reservations"]} == {"A1", "A2", "A3"}
+    assert corpo["total_cents"] == 3200 * 3
+
+
+def test_um_pagamento_cobre_o_grupo(app_semeado):
+    """A pessoa digitou o cartão uma vez e espera uma linha no extrato."""
+    clientes, refs = app_semeado
+    grupo = clientes["bruno"].post(
+        "/reservations",
+        json={"event_id": refs["evento_cinema"], "seat_labels": ["A1", "A2"]},
+    ).json()
+
+    r = _pagar(clientes["bruno"], *[x["id"] for x in grupo["reservations"]])
+
+    assert r.status_code == 201
+    assert r.json()["amount_cents"] == 3200 * 2
+    assert len(r.json()["ticket_ids"]) == 2
+
+
+def test_emite_um_ingresso_por_assento(app_semeado):
+    clientes, refs = app_semeado
+    grupo = clientes["bruno"].post(
+        "/reservations",
+        json={"event_id": refs["evento_cinema"], "seat_labels": ["A1", "A2", "A3"]},
+    ).json()
+    _pagar(clientes["bruno"], *[x["id"] for x in grupo["reservations"]])
+
+    ingressos = clientes["bruno"].get("/tickets/me").json()
+
+    assert len(ingressos) == 3
+    assert {i["seat_label"] for i in ingressos} == {"A1", "A2", "A3"}
+
+
+def test_recusa_cancela_o_grupo_inteiro(app_semeado):
+    """Deixar dois pagos e dois cancelados entregaria metade do pedido.
+
+    Quem compra quatro lugares quer sentar junto.
+    """
+    clientes, refs = app_semeado
+    grupo = clientes["bruno"].post(
+        "/reservations",
+        json={"event_id": refs["evento_cinema"], "seat_labels": ["A1", "A2"]},
+    ).json()
+
+    r = _pagar(
+        clientes["bruno"],
+        *[x["id"] for x in grupo["reservations"]],
+        cartao=CARTAO_RECUSADO,
+    )
+
+    assert r.status_code == 402
+    mapa = clientes["anon"].get(f"/events/{refs['evento_cinema']}").json()["seat_map"]
+    assert "A1" not in mapa["taken"]
+    assert "A2" not in mapa["taken"]
+    assert clientes["bruno"].get("/tickets/me").json() == []
+
+
+def test_reserva_e_tudo_ou_nada(app_semeado):
+    """Se um assento do grupo se perder, nenhum fica reservado.
+
+    Deixar dois presos num hold que o cliente não vai pagar bloqueia lugares
+    de graça — ele queria os três.
+    """
+    clientes, refs = app_semeado
+    # C4 já está vendido no seed.
+    r = clientes["bruno"].post(
+        "/reservations",
+        json={"event_id": refs["evento_cinema"], "seat_labels": ["A1", "C4", "A2"]},
+    )
+
+    assert r.status_code == 409
+    assert r.json()["error"]["code"] == "SEAT_TAKEN"
+
+    mapa = clientes["anon"].get(f"/events/{refs['evento_cinema']}").json()["seat_map"]
+    assert "A1" not in mapa["taken"], "A1 não deveria ter ficado preso"
+    assert "A2" not in mapa["taken"], "A2 não deveria ter ficado preso"
+
+
+def test_rejeita_assento_repetido_na_escolha(app_semeado):
+    """Erro de entrada, não corrida: a mensagem tem de dizer isso."""
+    clientes, refs = app_semeado
+
+    r = clientes["bruno"].post(
+        "/reservations",
+        json={"event_id": refs["evento_cinema"], "seat_labels": ["A1", "a1"]},
+    )
+
+    assert r.status_code == 422, "'a1' e 'A1' são o mesmo lugar"
+
+
+def test_limita_assentos_por_compra(app_semeado):
+    """Sem limite, uma pessoa bloquearia meia fileira durante o hold."""
+    clientes, refs = app_semeado
+
+    r = clientes["bruno"].post(
+        "/reservations",
+        json={
+            "event_id": refs["evento_cinema"],
+            "seat_labels": ["A1", "A2", "A3", "A4", "A5", "A6", "A7"],
+        },
+    )
+
+    assert r.status_code == 422
+
+
+def test_nao_paga_grupo_de_outro_cliente(app_semeado):
+    """Basta uma reserva alheia no lote para o pagamento inteiro cair."""
+    clientes, refs = app_semeado
+    meu = clientes["bruno"].post(
+        "/reservations", json={"event_id": refs["evento_cinema"], "seat_labels": ["A1"]}
+    ).json()["reservations"][0]
+    alheio = clientes["ana"].post(
+        "/reservations", json={"event_id": refs["evento_cinema"], "seat_labels": ["A2"]}
+    ).json()["reservations"][0]
+
+    r = _pagar(clientes["bruno"], meu["id"], alheio["id"])
+
+    assert r.status_code == 404

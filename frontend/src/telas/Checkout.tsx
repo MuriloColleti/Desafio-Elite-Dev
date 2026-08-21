@@ -25,7 +25,7 @@ const CARTOES = [
 ]
 
 export function Checkout() {
-  const { reservaId = '' } = useParams()
+  const { reservaIds = '' } = useParams()
   const navegar = useNavigate()
 
   const [cartao, setCartao] = useState('')
@@ -38,14 +38,18 @@ export function Checkout() {
   // recalcula `restante()` a cada tique.
   const [, setTique] = useState(0)
 
-  // O prazo do hold é gravado no sessionStorage ao reservar: a reserva
-  // pendente ainda não é ingresso e não tem endpoint GET próprio. Se a pessoa
-  // recarregar ou abrir o link direto, o contador simplesmente não aparece — o
-  // servidor continua sendo quem decide se o prazo venceu.
+  // Os ids vêm na URL separados por vírgula: comprar quatro assentos gera
+  // quatro reservas, porque a constraint de unicidade é por assento.
+  const ids = reservaIds.split(',').filter(Boolean)
+
+  // O prazo do hold é gravado no sessionStorage ao reservar: a reserva pendente
+  // ainda não é ingresso e não tem endpoint GET próprio. Se a pessoa recarregar
+  // ou abrir o link direto, o contador simplesmente não aparece — o servidor
+  // continua sendo quem decide se o prazo venceu.
   useEffect(() => {
-    const guardado = sessionStorage.getItem(`reserva:${reservaId}`)
+    const guardado = sessionStorage.getItem(`grupo:${reservaIds}`)
     if (guardado) setExpiraEm(guardado)
-  }, [reservaId])
+  }, [reservaIds])
 
   useEffect(() => {
     const t = setInterval(() => setTique((n) => n + 1), 1000)
@@ -62,13 +66,13 @@ export function Checkout() {
     setPagando(true)
 
     try {
-      const pago = await api.post<Pagamento>('/payments', {
-        reservation_id: reservaId,
+      await api.post<Pagamento>('/payments', {
+        reservation_ids: ids,
         card_number: cartao,
         card_holder: titular,
       })
-      sessionStorage.removeItem(`reserva:${reservaId}`)
-      navegar(`/ingresso/${pago.ticket_id}`, { state: { novo: true } })
+      sessionStorage.removeItem(`grupo:${reservaIds}`)
+      navegar('/meus-ingressos', { state: { novo: true } })
     } catch (err) {
       if (err instanceof ApiError) {
         setCodigoErro(err.code)
@@ -102,8 +106,9 @@ export function Checkout() {
         </div>
 
         <div className="aviso aviso-neutro">
-          O lugar voltou a ficar disponível para outras pessoas. Para continuar, escolha o lugar
-          novamente.
+          {ids.length > 1
+            ? 'Os lugares voltaram a ficar disponíveis para outras pessoas. Para continuar, escolha novamente.'
+            : 'O lugar voltou a ficar disponível para outras pessoas. Para continuar, escolha o lugar novamente.'}
         </div>
 
         <Link to="/" className="btn btn-principal btn-largo">
@@ -119,13 +124,16 @@ export function Checkout() {
         <div className="pilha pilha-8">
           <h1>Pagamento</h1>
           <p className="texto-2 texto-p" style={{ margin: 0 }}>
+            {ids.length > 1
+              ? `${ids.length} ingressos numa única cobrança. `
+              : ''}
             Cobrança simulada — nenhum valor é movimentado de verdade.
           </p>
         </div>
 
         {prazo && (
           <div className={prazo.minutos < 2 ? 'aviso aviso-alerta' : 'aviso aviso-neutro'}>
-            Seu lugar está reservado por{' '}
+            {ids.length > 1 ? 'Seus lugares estão' : 'Seu lugar está'} reservados por{' '}
             <strong className="mono">
               {String(prazo.minutos).padStart(2, '0')}:{String(prazo.segundos).padStart(2, '0')}
             </strong>

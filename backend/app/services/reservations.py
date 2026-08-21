@@ -32,6 +32,10 @@ from app.models.enums import EventLayout, EventStatus, ReservationStatus
 # porque 26 fileiras cobre qualquer sala real deste escopo.
 _PADRAO_ASSENTO = re.compile(r"([A-Z])(\d{1,2})")
 
+# Limite por compra. Cinemas praticam algo nessa ordem para uma pessoa não
+# bloquear meia fileira durante o hold.
+MAX_ASSENTOS = 6
+
 
 def _agora() -> datetime:
     return datetime.now(UTC)
@@ -168,6 +172,91 @@ def criar(
 
     db.refresh(reserva)
     return reserva
+
+
+def criar_varias(
+    db: Session,
+    *,
+    event_id: str,
+    customer_id: str,
+    seat_labels: list[str],
+) -> list[Reservation]:
+    """Reserva vários assentos de uma vez, tudo ou nada.
+
+    Uma reserva por assento — a constraint `uq_seat_active` é sobre
+    `(event_id, seat_label)`, então um registro não pode representar dois
+    lugares. O que agrupa a compra é o pagamento, não a reserva.
+
+    **Atômico de propósito.** Se o terceiro assento de quatro se perder para
+    outra pessoa, os dois primeiros não podem ficar presos num hold que o
+    cliente nunca vai pagar: ele quer os quatro juntos, e um pedaço do grupo é
+    pior que erro claro. O `rollback` desfaz o lote inteiro.
+    """
+    if not seat_labels:
+        raise ValidationFailed("Escolha ao menos um assento.")
+
+    if len(seat_labels) > MAX_ASSENTOS:
+        raise ValidationFailed(f"Máximo de {MAX_ASSENTOS} assentos por compra.")
+
+    # Normaliza antes de conferir duplicata: "a1" e "A1" são o mesmo lugar, e
+    # sem isso o lote iria ao banco e morreria na constraint com SEAT_TAKEN —
+    # mensagem errada para o que é erro de entrada.
+    rotulos = [r.strip().upper() for r in seat_labels]
+    if len(set(rotulos)) != len(rotulos):
+        raise ValidationFailed("Há assentos repetidos na escolha.")
+
+    evento = _evento_reservavel(db, event_id)
+
+    if evento.layout is not EventLayout.SEATED:
+        raise ValidationFailed("Este evento é por quantidade, não por assento.")
+
+    for rotulo in rotulos:
+        _validar_rotulo(evento, rotulo)
+
+    expira = _agora() + timedelta(minutes=settings.reservation_ttl_minutes)
+    reservas = [
+        Reservation(
+            event_id=evento.id,
+            customer_id=customer_id,
+            seat_label=rotulo,
+            quantity=1,
+            status=ReservationStatus.PENDING,
+            expires_at=expira,
+        )
+        for rotulo in rotulos
+    ]
+    db.add_all(reservas)
+
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise SeatTaken() from exc
+
+    for r in reservas:
+        db.refresh(r)
+    return reservas
+
+
+def obter_grupo(db: Session, *, ids: list[str], customer_id: str) -> list[Reservation]:
+    """As reservas de uma compra, validando dono e prazo de todas.
+
+    Levanta na primeira que não servir: pagar metade de um grupo deixaria o
+    cliente com parte dos assentos que pediu, o que é pior do que não pagar.
+    """
+    if not ids:
+        raise ValidationFailed("Informe as reservas a pagar.")
+
+    reservas = [
+        obter_para_pagamento(db, reservation_id=rid, customer_id=customer_id) for rid in ids
+    ]
+
+    # Todas do mesmo evento: um pagamento representa uma ida ao cinema, e somar
+    # sessões diferentes numa cobrança confundiria o extrato e o estorno.
+    if len({r.event_id for r in reservas}) > 1:
+        raise ValidationFailed("As reservas são de eventos diferentes.")
+
+    return reservas
 
 
 def _conferir_disponibilidade_pista(db: Session, evento: Event, quantity: int) -> None:

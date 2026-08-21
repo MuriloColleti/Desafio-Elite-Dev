@@ -11,7 +11,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { api } from '../lib/api'
 import type { Evento } from '../lib/tipos'
@@ -85,7 +85,16 @@ function naGrade(titulo: string): HTMLElement | null {
 
 describe('Vitrine', () => {
   beforeEach(() => {
+    // A busca tem debounce de 250ms; `shouldAdvanceTime` deixa o tempo correr
+    // sozinho para o `waitFor` não ficar preso no esqueleto de carregamento.
+    // Sem declarar aqui, a Vitrine herdaria os fake timers de outro arquivo de
+    // teste que roda no mesmo worker — e o debounce nunca dispararia.
+    vi.useFakeTimers({ shouldAdvanceTime: true })
     mockApi(FILMES)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('lista as sessões sem exigir login', async () => {

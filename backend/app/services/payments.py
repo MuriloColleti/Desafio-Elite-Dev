@@ -1,5 +1,9 @@
 """Pagamento simulado.
 
+Uma compra pode envolver várias reservas: quatro assentos são quatro registros,
+porque a constraint de unicidade é por assento. O que agrupa é o **pagamento** —
+`cobrar_grupo` cobra o conjunto numa transação, e recusa cancela todas.
+
 O enunciado pede confirmação **e** recusa, então a recusa não é um erro
 genérico de tela: é uma transição de estado que devolve o assento ao estoque.
 Sem isso surge o assento fantasma — reservado por alguém cujo cartão falhou e
@@ -57,58 +61,87 @@ def _decidir(numero_cartao: str) -> tuple[bool, str | None]:
     return True, None
 
 
+def cobrar_grupo(
+    db: Session,
+    *,
+    reservation_ids: list[str],
+    customer_id: str,
+    numero_cartao: str,
+) -> tuple[list[Payment], list[Ticket]]:
+    """Cobra várias reservas numa só transação.
+
+    Comprar quatro assentos gera quatro reservas — a constraint é um assento por
+    reserva — mas **uma** cobrança: a pessoa digitou o cartão uma vez e espera
+    uma linha no extrato.
+
+    Recusa cancela **todas** as reservas do grupo. Deixar duas pagas e duas
+    canceladas entregaria metade do que foi pedido, e quem compra quatro lugares
+    quer sentar junto.
+    """
+    reservas = reservations.obter_grupo(db, ids=reservation_ids, customer_id=customer_id)
+
+    aprovado, motivo = _decidir(numero_cartao)
+
+    # Um registro de pagamento por reserva, com o valor daquela reserva: o total
+    # do grupo é a soma, e assim cancelar um ingresso depois não exige ratear
+    # uma cobrança única.
+    pagamentos = [
+        Payment(
+            reservation_id=r.id,
+            status=PaymentStatus.APPROVED if aprovado else PaymentStatus.DECLINED,
+            amount_cents=r.event.price_cents * r.quantity,
+            reason=motivo,
+        )
+        for r in reservas
+    ]
+    db.add_all(pagamentos)
+
+    if not aprovado:
+        for r in reservas:
+            r.status = ReservationStatus.CANCELLED
+            r.expires_at = None
+        db.commit()
+        raise PaymentDeclined(motivo or "Pagamento recusado.")
+
+    ingressos = []
+    for r in reservas:
+        r.status = ReservationStatus.PAID
+        # Pago não expira: o prazo existia para o hold, e ele terminou.
+        r.expires_at = None
+        ingressos.append(
+            Ticket(
+                reservation_id=r.id,
+                share_token=secrets.token_urlsafe(24),
+                status=TicketStatus.VALID,
+            )
+        )
+    db.add_all(ingressos)
+
+    db.commit()
+    for p in pagamentos:
+        db.refresh(p)
+    for t in ingressos:
+        db.refresh(t)
+
+    return pagamentos, ingressos
+
+
 def cobrar(
     db: Session,
     *,
     reservation_id: str,
     customer_id: str,
     numero_cartao: str,
-) -> tuple[Payment, Ticket | None]:
-    """Cobra a reserva. Devolve (pagamento, ingresso ou None se recusado).
+) -> tuple[Payment, Ticket]:
+    """Cobra uma reserva só.
 
-    Aprovado → reserva vira PAID e o ingresso é emitido na mesma transação:
-    ingresso sem pagamento, ou pagamento sem ingresso, seriam estados
-    impossíveis de explicar ao cliente.
-
-    Recusado → reserva vira CANCELLED, o que a tira do índice de unicidade e
-    devolve o assento. O pagamento recusado fica registrado: é histórico, e o
-    cliente precisa poder ver que a tentativa aconteceu.
+    Delega para `cobrar_grupo`: a regra é a mesma, e duas implementações do
+    mesmo fluxo divergiriam na primeira correção.
     """
-    reserva = reservations.obter_para_pagamento(
-        db, reservation_id=reservation_id, customer_id=customer_id
+    pagamentos, ingressos = cobrar_grupo(
+        db,
+        reservation_ids=[reservation_id],
+        customer_id=customer_id,
+        numero_cartao=numero_cartao,
     )
-    valor = reserva.event.price_cents * reserva.quantity
-
-    aprovado, motivo = _decidir(numero_cartao)
-
-    pagamento = Payment(
-        reservation_id=reserva.id,
-        status=PaymentStatus.APPROVED if aprovado else PaymentStatus.DECLINED,
-        amount_cents=valor,
-        reason=motivo,
-    )
-    db.add(pagamento)
-
-    if not aprovado:
-        reserva.status = ReservationStatus.CANCELLED
-        reserva.expires_at = None
-        db.commit()
-        # Levanta em vez de devolver: a recusa é um resultado que o front trata
-        # numa tela própria, e o código de erro é o que ele usa para decidir.
-        raise PaymentDeclined(motivo or "Pagamento recusado.")
-
-    reserva.status = ReservationStatus.PAID
-    # Pago não expira: o prazo existia para o hold, e ele terminou.
-    reserva.expires_at = None
-
-    ingresso = Ticket(
-        reservation_id=reserva.id,
-        share_token=secrets.token_urlsafe(24),
-        status=TicketStatus.VALID,
-    )
-    db.add(ingresso)
-
-    db.commit()
-    db.refresh(pagamento)
-    db.refresh(ingresso)
-    return pagamento, ingresso
+    return pagamentos[0], ingressos[0]

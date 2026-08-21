@@ -127,19 +127,20 @@ def test_reserva_cria_hold_com_prazo(app_semeado):
     """Sem prazo, um assento abandonado no checkout ficaria preso para sempre."""
     clientes, refs = app_semeado
     r = clientes["bruno"].post(
-        "/reservations", json={"event_id": refs["evento_cinema"], "seat_label": "A1"}
+        "/reservations", json={"event_id": refs["evento_cinema"], "seat_labels": ["A1"]}
     )
 
     assert r.status_code == 201
-    assert r.json()["status"] == "PENDING"
-    assert r.json()["expires_at"] is not None
+    corpo = r.json()
+    assert corpo["reservations"][0]["status"] == "PENDING"
+    assert corpo["expires_at"] is not None
 
 
 def test_hold_ocupa_o_assento_imediatamente(app_semeado):
     """A disputa se resolve no clique, não no pagamento."""
     clientes, refs = app_semeado
     clientes["bruno"].post(
-        "/reservations", json={"event_id": refs["evento_cinema"], "seat_label": "A1"}
+        "/reservations", json={"event_id": refs["evento_cinema"], "seat_labels": ["A1"]}
     )
 
     mapa = clientes["anon"].get(f"/events/{refs['evento_cinema']}").json()["seat_map"]
@@ -149,7 +150,7 @@ def test_hold_ocupa_o_assento_imediatamente(app_semeado):
 def test_segundo_cliente_recebe_seat_taken(app_semeado):
     """O caso central do enunciado: o mesmo lugar não se vende duas vezes."""
     clientes, refs = app_semeado
-    corpo = {"event_id": refs["evento_cinema"], "seat_label": "A1"}
+    corpo = {"event_id": refs["evento_cinema"], "seat_labels": ["A1"]}
 
     assert clientes["bruno"].post("/reservations", json=corpo).status_code == 201
 
@@ -161,7 +162,7 @@ def test_segundo_cliente_recebe_seat_taken(app_semeado):
 def test_assento_vendido_no_seed_esta_bloqueado(app_semeado):
     clientes, refs = app_semeado
     r = clientes["bruno"].post(
-        "/reservations", json={"event_id": refs["evento_cinema"], "seat_label": "C4"}
+        "/reservations", json={"event_id": refs["evento_cinema"], "seat_labels": ["C4"]}
     )
     assert r.status_code == 409
 
@@ -169,7 +170,7 @@ def test_assento_vendido_no_seed_esta_bloqueado(app_semeado):
 def test_calcula_o_total(app_semeado):
     clientes, refs = app_semeado
     r = clientes["bruno"].post(
-        "/reservations", json={"event_id": refs["evento_cinema"], "seat_label": "A1"}
+        "/reservations", json={"event_id": refs["evento_cinema"], "seat_labels": ["A1"]}
     )
     assert r.json()["total_cents"] == 3200
 
@@ -187,7 +188,7 @@ def test_rejeita_assento_fora_do_mapa(app_semeado, rotulo, motivo):
     """A constraint aceitaria "Z99" (é único), mas o assento não existe na sala."""
     clientes, refs = app_semeado
     r = clientes["bruno"].post(
-        "/reservations", json={"event_id": refs["evento_cinema"], "seat_label": rotulo}
+        "/reservations", json={"event_id": refs["evento_cinema"], "seat_labels": [rotulo]}
     )
     assert r.status_code == 422, motivo
 
@@ -195,7 +196,7 @@ def test_rejeita_assento_fora_do_mapa(app_semeado, rotulo, motivo):
 def test_assento_e_case_insensitive(app_semeado):
     clientes, refs = app_semeado
     r = clientes["bruno"].post(
-        "/reservations", json={"event_id": refs["evento_cinema"], "seat_label": "a1"}
+        "/reservations", json={"event_id": refs["evento_cinema"], "seat_labels": ["a1"]}
     )
     assert r.status_code == 201
 
@@ -210,10 +211,15 @@ def test_reserva_de_pista_por_quantidade(app_semeado):
     )
 
     assert r.status_code == 201
-    assert r.json()["seat_label"] is None
+    corpo = r.json()
+    # Pista é uma reserva com quantidade, não N reservas de assento.
+    assert len(corpo["reservations"]) == 1
+    assert corpo["reservations"][0]["seat_label"] is None
+    assert corpo["reservations"][0]["quantity"] == 3
+
     # Preço lido do evento: a regra sob teste é a multiplicação, não o valor.
     preco = clientes["anon"].get(f"/events/{refs['evento_pista']}").json()["price_cents"]
-    assert r.json()["total_cents"] == preco * 3
+    assert corpo["total_cents"] == preco * 3
 
 
 def test_reservas_de_pista_coexistem(app_semeado):
@@ -228,7 +234,7 @@ def test_reservas_de_pista_coexistem(app_semeado):
 def test_pista_recusa_assento(app_semeado):
     clientes, refs = app_semeado
     r = clientes["bruno"].post(
-        "/reservations", json={"event_id": refs["evento_pista"], "seat_label": "A1"}
+        "/reservations", json={"event_id": refs["evento_pista"], "seat_labels": ["A1"]}
     )
     assert r.status_code == 422
 
@@ -247,9 +253,9 @@ def test_evento_com_assento_exige_assento(app_semeado):
 def test_liberar_devolve_o_assento_ao_estoque(app_semeado):
     """Sair do índice de unicidade é o que devolve o lugar."""
     clientes, refs = app_semeado
-    corpo = {"event_id": refs["evento_cinema"], "seat_label": "A1"}
+    corpo = {"event_id": refs["evento_cinema"], "seat_labels": ["A1"]}
 
-    reserva = clientes["bruno"].post("/reservations", json=corpo).json()
+    reserva = clientes["bruno"].post("/reservations", json=corpo).json()["reservations"][0]
     r = clientes["bruno"].delete(f"/reservations/{reserva['id']}")
 
     assert r.status_code == 200 and r.json()["status"] == "CANCELLED"
@@ -265,8 +271,8 @@ def test_nao_libera_reserva_de_outro_cliente(app_semeado):
     """404 e não 403: não confirmamos a existência de reservas alheias."""
     clientes, refs = app_semeado
     reserva = clientes["bruno"].post(
-        "/reservations", json={"event_id": refs["evento_cinema"], "seat_label": "A1"}
-    ).json()
+        "/reservations", json={"event_id": refs["evento_cinema"], "seat_labels": ["A1"]}
+    ).json()["reservations"][0]
 
     r = clientes["ana"].delete(f"/reservations/{reserva['id']}")
     assert r.status_code == 404
@@ -275,8 +281,8 @@ def test_nao_libera_reserva_de_outro_cliente(app_semeado):
 def test_liberar_duas_vezes_e_idempotente(app_semeado):
     clientes, refs = app_semeado
     reserva = clientes["bruno"].post(
-        "/reservations", json={"event_id": refs["evento_cinema"], "seat_label": "A1"}
-    ).json()
+        "/reservations", json={"event_id": refs["evento_cinema"], "seat_labels": ["A1"]}
+    ).json()["reservations"][0]
 
     assert clientes["bruno"].delete(f"/reservations/{reserva['id']}").status_code == 200
     assert clientes["bruno"].delete(f"/reservations/{reserva['id']}").status_code == 200
@@ -289,7 +295,7 @@ def test_organizador_nao_reserva(app_semeado):
     """Os três papéis são disjuntos: organizador não compra."""
     clientes, refs = app_semeado
     r = clientes["organizador"].post(
-        "/reservations", json={"event_id": refs["evento_cinema"], "seat_label": "B1"}
+        "/reservations", json={"event_id": refs["evento_cinema"], "seat_labels": ["B1"]}
     )
     assert r.status_code == 403
 
@@ -302,7 +308,7 @@ def test_cliente_nao_acessa_painel_do_organizador(app_semeado):
 def test_portaria_nao_reserva(app_semeado):
     clientes, refs = app_semeado
     r = clientes["portaria"].post(
-        "/reservations", json={"event_id": refs["evento_cinema"], "seat_label": "B1"}
+        "/reservations", json={"event_id": refs["evento_cinema"], "seat_labels": ["B1"]}
     )
     assert r.status_code == 403
 
@@ -310,7 +316,7 @@ def test_portaria_nao_reserva(app_semeado):
 def test_reserva_exige_autenticacao(app_semeado):
     clientes, refs = app_semeado
     r = clientes["anon"].post(
-        "/reservations", json={"event_id": refs["evento_cinema"], "seat_label": "B1"}
+        "/reservations", json={"event_id": refs["evento_cinema"], "seat_labels": ["B1"]}
     )
     assert r.status_code == 401
 
