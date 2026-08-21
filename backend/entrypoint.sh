@@ -10,6 +10,13 @@
 
 set -e
 
+# Aviso explícito: sem chave o catálogo cai para as fixtures, e descobrir isso
+# olhando a vitrine e estranhando os títulos é caro.
+if [ -z "${TMDB_API_KEY}" ]; then
+  echo "! TMDB_API_KEY ausente — catálogo em modo offline (49 filmes locais)."
+  echo "  Para usar o TMDb: crie um .env na raiz com TMDB_API_KEY=sua-chave."
+fi
+
 echo "→ aplicando migrations…"
 alembic upgrade head
 

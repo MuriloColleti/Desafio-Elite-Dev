@@ -47,7 +47,9 @@ services:
       CORS_ORIGINS: http://localhost:5173
       PUBLIC_BASE_URL: http://localhost:5173
       DEBUG: 'true'
-      # Opcional: sem chave o catálogo usa as fixtures locais.
+      # Lida do `.env` na raiz do projeto (o Compose o carrega sozinho), então
+      # `docker compose up` basta — sem exportar variável no shell. Sem chave a
+      # aplicação sobe e o catálogo usa as fixtures locais.
       TMDB_API_KEY: ${TMDB_API_KEY:-}
       # O entrypoint migra sempre e semeia se o banco estiver vazio, então
       # `docker compose up` já entrega o ambiente pronto para percorrer.

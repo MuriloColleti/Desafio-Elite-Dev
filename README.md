@@ -218,12 +218,18 @@ log mostrar `→ subindo a API` o ambiente já está pronto para percorrer o flu
 O seed só popula banco vazio: reiniciar ou refazer o deploy não duplica nem apaga o que você criou
 durante o teste.
 
-As chaves das APIs externas são **opcionais** — sem elas o catálogo usa um conjunto local de
-exemplo e todo o resto funciona. Para usar títulos reais:
+A chave do TMDb é **opcional** — sem ela o catálogo usa 49 filmes de exemplo e todo o resto
+funciona. Para usar filmes reais em cartaz, crie um `.env` **na raiz do projeto**:
 
 ```bash
-TMDB_API_KEY=sua-chave TICKETMASTER_API_KEY=sua-chave docker compose up --build
+cp .env.example .env
+#   edite e preencha TMDB_API_KEY
+docker compose up --build
 ```
+
+O `.env` da raiz é lido pelo Compose automaticamente. Passar a chave só no comando
+(`TMDB_API_KEY=… docker compose up`) funciona, mas se perde no próximo `up` feito sem ela — e o
+seed cai no catálogo local. O contêiner **avisa no log** quando sobe sem chave.
 
 | Serviço      | URL                        |
 | ------------ | -------------------------- |
