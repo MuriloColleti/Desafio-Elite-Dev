@@ -40,10 +40,10 @@ function motivo(e: Evento): { texto: string; tom: 'quente' | 'neutro' } {
   if (taxa >= 0.5) {
     return { texto: `${Math.round(taxa * 100)}% vendido`, tom: 'quente' }
   }
-  if (e.layout === 'SEATED') {
-    return { texto: 'Lugar marcado', tom: 'neutro' }
+  return {
+    texto: e.layout === 'SEATED' ? 'Lugar marcado' : 'Sem lugar marcado',
+    tom: 'neutro',
   }
-  return { texto: 'Pista liberada', tom: 'neutro' }
 }
 
 export function Recomendados({ eventos }: { eventos: Evento[] }) {

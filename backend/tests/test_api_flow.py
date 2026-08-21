@@ -76,9 +76,9 @@ def test_busca_por_titulo(app_semeado, termo):
 
 
 def test_busca_por_local(app_semeado):
-    """As pessoas procuram tanto pelo filme quanto pela casa de show."""
+    """As pessoas procuram tanto pelo filme quanto pelo cinema."""
     clientes, _ = app_semeado
-    assert len(_itens(clientes["anon"].get("/events?q=Circo&limit=120"))) >= 1
+    assert len(_itens(clientes["anon"].get("/events?q=Belas Artes&limit=120"))) >= 1
 
 
 def test_filtro_por_layout(app_semeado):
@@ -117,7 +117,7 @@ def test_detalhe_traz_mapa_com_ocupados(app_semeado):
 
 def test_evento_de_pista_nao_tem_mapa(app_semeado):
     clientes, refs = app_semeado
-    assert clientes["anon"].get(f"/events/{refs['evento_show']}").json()["seat_map"] is None
+    assert clientes["anon"].get(f"/events/{refs['evento_pista']}").json()["seat_map"] is None
 
 
 # --- Reserva com assento ---
@@ -206,18 +206,20 @@ def test_assento_e_case_insensitive(app_semeado):
 def test_reserva_de_pista_por_quantidade(app_semeado):
     clientes, refs = app_semeado
     r = clientes["bruno"].post(
-        "/reservations", json={"event_id": refs["evento_show"], "quantity": 3}
+        "/reservations", json={"event_id": refs["evento_pista"], "quantity": 3}
     )
 
     assert r.status_code == 201
     assert r.json()["seat_label"] is None
-    assert r.json()["total_cents"] == 9000 * 3
+    # Preço lido do evento: a regra sob teste é a multiplicação, não o valor.
+    preco = clientes["anon"].get(f"/events/{refs['evento_pista']}").json()["price_cents"]
+    assert r.json()["total_cents"] == preco * 3
 
 
 def test_reservas_de_pista_coexistem(app_semeado):
     """O índice é parcial: sem assento, não há o que conflitar."""
     clientes, refs = app_semeado
-    corpo = {"event_id": refs["evento_show"], "quantity": 2}
+    corpo = {"event_id": refs["evento_pista"], "quantity": 2}
 
     assert clientes["bruno"].post("/reservations", json=corpo).status_code == 201
     assert clientes["ana"].post("/reservations", json=corpo).status_code == 201
@@ -226,7 +228,7 @@ def test_reservas_de_pista_coexistem(app_semeado):
 def test_pista_recusa_assento(app_semeado):
     clientes, refs = app_semeado
     r = clientes["bruno"].post(
-        "/reservations", json={"event_id": refs["evento_show"], "seat_label": "A1"}
+        "/reservations", json={"event_id": refs["evento_pista"], "seat_label": "A1"}
     )
     assert r.status_code == 422
 
@@ -412,7 +414,7 @@ def test_sem_publish_fica_rascunho_fora_da_vitrine(app_semeado):
         ),
         (
             {
-                "catalog_ref": "tmdb:movie:999999",
+                "catalog_ref": "tmdb:movie:99999999",
                 "venue": "V",
                 "layout": "SEATED",
                 "price_cents": 100,
@@ -459,8 +461,14 @@ def test_nao_muda_preco_com_ingresso_vendido(app_semeado):
 
 def test_nao_reduz_capacidade_abaixo_do_vendido(app_semeado):
     clientes, refs = app_semeado
+    # Vende alguns lugares primeiro: o seed deixa a sessão ao ar livre vazia, e
+    # sem venda não há piso para a capacidade respeitar.
+    clientes["bruno"].post(
+        "/reservations", json={"event_id": refs["evento_pista"], "quantity": 5}
+    )
+
     r = clientes["organizador"].patch(
-        f"/organizer/events/{refs['evento_show']}", json={"capacity": 1}
+        f"/organizer/events/{refs['evento_pista']}", json={"capacity": 1}
     )
     assert r.status_code == 422
 
@@ -478,26 +486,26 @@ def test_capacidade_de_evento_com_assento_vem_do_mapa(app_semeado):
 
 def test_cancelar_remove_da_vitrine(app_semeado):
     clientes, refs = app_semeado
-    r = clientes["organizador"].delete(f"/organizer/events/{refs['evento_show']}")
+    r = clientes["organizador"].delete(f"/organizer/events/{refs['evento_pista']}")
 
     assert r.status_code == 200 and r.json()["status"] == "CANCELLED"
     ids = [e["id"] for e in _itens(clientes["anon"].get("/events?limit=120"))]
-    assert refs["evento_show"] not in ids
+    assert refs["evento_pista"] not in ids
 
 
 def test_evento_cancelado_nao_aceita_reserva(app_semeado):
     clientes, refs = app_semeado
-    clientes["organizador"].delete(f"/organizer/events/{refs['evento_show']}")
+    clientes["organizador"].delete(f"/organizer/events/{refs['evento_pista']}")
 
     r = clientes["bruno"].post(
-        "/reservations", json={"event_id": refs["evento_show"], "quantity": 1}
+        "/reservations", json={"event_id": refs["evento_pista"], "quantity": 1}
     )
     assert r.status_code == 422
 
 
 def test_cancelar_e_idempotente(app_semeado):
     clientes, refs = app_semeado
-    url = f"/organizer/events/{refs['evento_show']}"
+    url = f"/organizer/events/{refs['evento_pista']}"
 
     assert clientes["organizador"].delete(url).status_code == 200
     assert clientes["organizador"].delete(url).status_code == 200
@@ -521,12 +529,14 @@ def test_genero_inexistente_e_rejeitado(app_semeado):
     assert clientes["anon"].get("/events?genre=INVENTADO").status_code == 422
 
 
-def test_genero_de_show_nao_traz_filme(app_semeado):
+def test_genero_sem_sessao_devolve_lista_vazia(app_semeado):
+    """Gênero musical existe no enum mas não tem sessão: vazio, não erro."""
     clientes, _ = app_semeado
 
-    r = _itens(clientes["anon"].get("/events?genre=SAMBA&limit=120"))
+    corpo = clientes["anon"].get("/events?genre=PAGODE&limit=120").json()
 
-    assert all(e["layout"] == "GENERAL" for e in r)
+    assert corpo["items"] == []
+    assert corpo["total"] == 0
 
 
 def test_evento_criado_do_catalogo_herda_o_genero(app_semeado):
@@ -710,41 +720,45 @@ def test_localizacoes_dispensa_autenticacao(app_semeado):
     assert clientes["anon"].get("/locations").status_code == 200
 
 
-def test_evento_criado_do_catalogo_herda_a_cidade(app_semeado):
+def test_cidade_informada_e_gravada(app_semeado):
+    """Filme não tem cidade no catálogo: quem define a sessão informa onde é."""
     clientes, _ = app_semeado
 
     r = clientes["organizador"].post(
         "/organizer/events",
         json={
-            "catalog_ref": "ticketmaster:event:demo-pulso",  # Itajaí/SC nas fixtures
-            "venue": "Warung",
+            "catalog_ref": "tmdb:movie:419430",
+            "city": "Florianópolis",
+            "state": "SC",
+            "venue": "Cine Floripa — Sala 2",
             "starts_at": _futuro(),
-            "layout": "GENERAL",
-            "price_cents": 9000,
-            "capacity": 300,
+            "layout": "SEATED",
+            "price_cents": 3000,
+            "seat_rows": 5,
+            "seats_per_row": 10,
         },
     )
 
     assert r.status_code == 201
-    assert r.json()["city"] == "Itajaí"
+    assert r.json()["city"] == "Florianópolis"
     assert r.json()["state"] == "SC"
 
 
-def test_cidade_informada_ganha_da_sugerida(app_semeado):
+def test_evento_sem_cidade_informada_fica_sem_localizacao(app_semeado):
+    """Sem cidade o evento existe, mas não aparece no filtro de local."""
     clientes, _ = app_semeado
 
     r = clientes["organizador"].post(
         "/organizer/events",
         json={
-            "catalog_ref": "ticketmaster:event:demo-pulso",
-            "city": "Florianópolis",
-            "state": "SC",
-            "venue": "Outro Lugar",
+            "title": "Sessão Especial",
+            "venue": "Local a definir",
             "starts_at": _futuro(),
             "layout": "GENERAL",
-            "price_cents": 9000,
-            "capacity": 300,
+            "price_cents": 2000,
+            "capacity": 80,
         },
     )
 
-    assert r.json()["city"] == "Florianópolis"
+    assert r.status_code == 201
+    assert r.json()["city"] is None

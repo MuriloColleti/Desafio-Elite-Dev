@@ -5,9 +5,9 @@
  * de definir sessão. Juntar tudo numa tela obrigaria a olhar 8 campos antes de
  * saber qual filme está montando.
  *
- * O item do catálogo preenche o que ele sabe (título, sinopse, pôster, e o
- * local/data quando é show do Ticketmaster) e sugere o layout. O organizador
- * decide o resto — e pode mudar a sugestão.
+ * O item do catálogo preenche o que ele sabe (título, sinopse, pôster e
+ * gênero) e sugere o layout. O organizador decide o resto — data, sala,
+ * cidade, preço — e pode mudar qualquer sugestão.
  */
 
 import { useEffect, useState } from 'react'
@@ -15,7 +15,8 @@ import { useNavigate } from 'react-router-dom'
 
 import { ApiError, api } from '../lib/api'
 import { mensagemDeErro } from '../lib/formato'
-import type { BuscaCatalogo, Evento, ItemCatalogo, Layout } from '../lib/tipos'
+import { generosDisponiveis, rotuloGenero } from '../lib/generos'
+import type { BuscaCatalogo, Evento, Genero, ItemCatalogo, Layout } from '../lib/tipos'
 
 export function NovoEvento() {
   const navegar = useNavigate()
@@ -33,6 +34,9 @@ export function NovoEvento() {
   const [fileiras, setFileiras] = useState('8')
   const [porFileira, setPorFileira] = useState('12')
   const [capacidade, setCapacidade] = useState('300')
+  const [genero, setGenero] = useState<Genero | ''>('')
+  const [cidade, setCidade] = useState('')
+  const [estado, setEstado] = useState('')
   const [publicar, setPublicar] = useState(true)
 
   const [erro, setErro] = useState<string | null>(null)
@@ -58,6 +62,10 @@ export function NovoEvento() {
     setEscolhido(item)
     setLayout(item.suggested_layout)
     if (item.suggested_venue) setLocal(item.suggested_venue)
+    // O catálogo classifica o filme; o organizador pode discordar no seletor.
+    if (item.suggested_genre) setGenero(item.suggested_genre)
+    if (item.suggested_city) setCidade(item.suggested_city)
+    if (item.suggested_state) setEstado(item.suggested_state)
     if (item.suggested_starts_at) {
       // <input type="datetime-local"> só aceita "YYYY-MM-DDTHH:mm".
       setQuando(item.suggested_starts_at.slice(0, 16))
@@ -78,6 +86,9 @@ export function NovoEvento() {
         // local e o toISOString converte para UTC, que é o que a API espera.
         starts_at: new Date(quando).toISOString(),
         layout,
+        genre: genero || null,
+        city: cidade.trim() || null,
+        state: estado.trim().toUpperCase() || null,
         price_cents: Math.round(parseFloat(preco.replace(',', '.')) * 100),
         seat_rows: layout === 'SEATED' ? Number(fileiras) : null,
         seats_per_row: layout === 'SEATED' ? Number(porFileira) : null,
@@ -104,7 +115,7 @@ export function NovoEvento() {
       <div className="pilha pilha-8">
         <h1>Criar evento</h1>
         <p className="texto-2 texto-p" style={{ margin: 0 }}>
-          Escolha um filme ou show do catálogo e defina a sessão.
+          Escolha um filme do catálogo e defina a sessão.
         </p>
       </div>
 
@@ -131,7 +142,7 @@ export function NovoEvento() {
                 {escolhido.title}
               </strong>
               <span className="texto-pp texto-3">
-                {escolhido.source === 'tmdb' ? 'Filme (TMDb)' : 'Show (Ticketmaster)'}
+                Filme · TMDb
               </span>
               <button type="button" className="btn-texto texto-pp" onClick={() => setEscolhido(null)}>
                 Trocar
@@ -145,7 +156,7 @@ export function NovoEvento() {
               <input
                 id="busca"
                 type="search"
-                placeholder="nome do filme ou do show"
+                placeholder="nome do filme"
                 value={termo}
                 onChange={(e) => setTermo(e.target.value)}
               />
@@ -165,7 +176,7 @@ export function NovoEvento() {
                     <span className="pilha pilha-8" style={{ textAlign: 'left' }}>
                       <strong className="texto-p">{i.title}</strong>
                       <span className="texto-pp texto-3">
-                        {i.source === 'tmdb' ? 'Filme' : 'Show'}
+                        Filme
                         {i.suggested_venue ? ` · ${i.suggested_venue}` : ''}
                       </span>
                     </span>
@@ -201,6 +212,47 @@ export function NovoEvento() {
             </div>
 
             <div className="campo">
+              <label htmlFor="cidade">Cidade</label>
+              <input
+                id="cidade"
+                required
+                placeholder="São Paulo"
+                value={cidade}
+                onChange={(e) => setCidade(e.target.value)}
+              />
+              <span className="campo-dica">É o que permite filtrar por localização.</span>
+            </div>
+
+            <div className="campo">
+              <label htmlFor="estado">Estado (UF)</label>
+              <input
+                id="estado"
+                required
+                maxLength={2}
+                placeholder="SP"
+                value={estado}
+                onChange={(e) => setEstado(e.target.value.toUpperCase())}
+              />
+            </div>
+
+            <div className="campo">
+              <label htmlFor="genero">Gênero</label>
+              <select
+                id="genero"
+                value={genero}
+                onChange={(e) => setGenero(e.target.value as Genero | '')}
+              >
+                <option value="">Sem gênero</option>
+                {generosDisponiveis().map((g) => (
+                  <option key={g} value={g}>
+                    {rotuloGenero(g)}
+                  </option>
+                ))}
+              </select>
+              <span className="campo-dica">Sugerido pelo catálogo; você pode mudar.</span>
+            </div>
+
+            <div className="campo">
               <label htmlFor="quando">Data e hora</label>
               <input
                 id="quando"
@@ -231,7 +283,7 @@ export function NovoEvento() {
                 onChange={(e) => setLayout(e.target.value as Layout)}
               >
                 <option value="SEATED">Lugar marcado (mapa de assentos)</option>
-                <option value="GENERAL">Pista (por quantidade)</option>
+                <option value="GENERAL">Sem lugar marcado (por quantidade)</option>
               </select>
             </div>
 

@@ -1,8 +1,8 @@
-"""Normalização dos provedores externos.
+"""Normalização do provedor TMDb.
 
-Testa o mapeamento provedor → `CatalogItem` com payloads no formato real
-documentado das duas APIs. É a parte que pode estar errada sem que nada quebre
-visivelmente: um campo com nome trocado vira `None` silencioso na tela.
+Testa o mapeamento `resposta do TMDb → CatalogItem` com payloads no formato real
+documentado. É a parte que pode estar errada sem que nada quebre visivelmente:
+um campo com nome trocado vira `None` silencioso na tela.
 
 A chamada HTTP em si não é testada aqui — bater na API real deixaria a suíte
 dependente de chave e de rede.
@@ -14,12 +14,6 @@ import pytest
 
 from app.providers import fixtures
 from app.providers.base import CatalogSource, parse_ref
-from app.providers.ticketmaster import (
-    TicketmasterProvider,
-    _melhor_imagem,
-    _parse_inicio,
-    _parse_local,
-)
 from app.providers.tmdb import TMDbProvider
 from app.models.enums import EventLayout
 
@@ -27,18 +21,11 @@ from app.models.enums import EventLayout
 # --- parse_ref ---
 
 
-@pytest.mark.parametrize(
-    ("ref", "esperado"),
-    [
-        ("tmdb:movie:550", (CatalogSource.TMDB, "movie:550")),
-        ("ticketmaster:event:G5v0Z9", (CatalogSource.TICKETMASTER, "event:G5v0Z9")),
-    ],
-)
-def test_parse_ref_valido(ref, esperado):
-    assert parse_ref(ref) == esperado
+def test_parse_ref_valido():
+    assert parse_ref("tmdb:movie:550") == (CatalogSource.TMDB, "movie:550")
 
 
-@pytest.mark.parametrize("ruim", ["", "lixo", "desconhecido:x:1", ":", "tmdb:"])
+@pytest.mark.parametrize("ruim", ["", "lixo", "ticketmaster:event:1", ":", "tmdb:"])
 def test_parse_ref_invalido_devolve_none(ruim):
     """Ref inválida vem do cliente: é 422 de validação, não erro interno."""
     assert parse_ref(ruim) is None
@@ -106,104 +93,22 @@ def test_tmdb_sinopse_vazia_vira_none():
     assert TMDbProvider("x")._to_item(raw).synopsis is None
 
 
-# --- Ticketmaster ---
-
-# Formato de /discovery/v2/events.json conforme a documentação.
-TM_RAW = {
-    "id": "G5v0Z9Y7dA-bs",
-    "name": "Baile do Terreiro",
-    "info": "Samba de raiz até o amanhecer.",
-    "dates": {"start": {"localDate": "2026-09-15", "dateTime": "2026-09-15T23:00:00Z"}},
-    "images": [
-        {"url": "https://img/pequena.jpg", "width": 100, "height": 100},
-        {"url": "https://img/grande.jpg", "width": 1024, "height": 576},
-        {"url": "https://img/retrato.jpg", "width": 640, "height": 1136},
-    ],
-    "_embedded": {
-        "venues": [{"name": "Circo Voador", "city": {"name": "Rio de Janeiro"}}]
-    },
-}
-
-
-def test_ticketmaster_mapeia_campos():
-    item = TicketmasterProvider("chave-falsa")._to_item(TM_RAW)
-
-    assert item.ref == "ticketmaster:event:G5v0Z9Y7dA-bs"
-    assert item.source is CatalogSource.TICKETMASTER
-    assert item.title == "Baile do Terreiro"
-    assert item.synopsis == "Samba de raiz até o amanhecer."
-
-
-def test_ticketmaster_sugere_data_e_local():
-    """Show já traz data e local — preenchem o formulário do organizador."""
-    item = TicketmasterProvider("x")._to_item(TM_RAW)
-
-    assert item.suggested_starts_at == datetime(2026, 9, 15, 23, 0, tzinfo=UTC)
-    assert item.suggested_venue == "Circo Voador, Rio de Janeiro"
-
-
-def test_ticketmaster_sugere_pista():
-    assert (
-        TicketmasterProvider("x")._to_item(TM_RAW).suggested_layout
-        is EventLayout.GENERAL
-    )
-
-
-def test_escolhe_a_maior_imagem_horizontal():
-    """Retrato esticado num card horizontal fica pior que imagem nenhuma."""
-    assert _melhor_imagem(TM_RAW["images"]) == "https://img/grande.jpg"
-
-
-def test_sem_imagem_horizontal_devolve_none():
-    apenas_retrato = [{"url": "https://img/r.jpg", "width": 640, "height": 1136}]
-    assert _melhor_imagem(apenas_retrato) is None
-
-
-def test_imagem_sem_url_e_ignorada():
-    assert _melhor_imagem([{"width": 1024, "height": 576}]) is None
-
-
-def test_lista_de_imagens_vazia():
-    assert _melhor_imagem([]) is None
-
-
-def test_parse_inicio_sem_hora_devolve_none():
-    """`timeTBA`: só a data, sem hora. Não inventamos horário."""
-    assert _parse_inicio({"start": {"localDate": "2026-09-15", "timeTBA": True}}) is None
-
-
-def test_parse_inicio_malformado_devolve_none():
-    assert _parse_inicio({"start": {"dateTime": "não é data"}}) is None
-    assert _parse_inicio({}) is None
-
-
-def test_parse_local_só_com_nome():
-    embedded = {"venues": [{"name": "Circo Voador"}]}
-    assert _parse_local(embedded) == "Circo Voador"
-
-
-def test_parse_local_sem_venue():
-    assert _parse_local({}) is None
-    assert _parse_local({"venues": []}) is None
-
-
 # --- Fixtures offline ---
 
 
-def test_fixtures_cobrem_os_dois_layouts():
-    """Sem chave de API o avaliador ainda precisa dos dois fluxos de reserva."""
-    filmes = [i for i in fixtures.FIXTURES if i.source is CatalogSource.TMDB]
-    shows = [i for i in fixtures.FIXTURES if i.source is CatalogSource.TICKETMASTER]
-
-    assert filmes and shows
-    assert all(i.suggested_layout is EventLayout.SEATED for i in filmes)
-    assert all(i.suggested_layout is EventLayout.GENERAL for i in shows)
+def test_fixtures_sao_todas_de_filme():
+    """Só o TMDb sobrou como fonte; nada de item de outra origem no fallback."""
+    assert all(i.source is CatalogSource.TMDB for i in fixtures.FIXTURES)
+    assert all(i.suggested_layout is EventLayout.SEATED for i in fixtures.FIXTURES)
 
 
-def test_fixtures_de_filme_tem_poster():
-    """O pôster carrega o peso visual da vitrine; filme sem pôster fica quebrado."""
-    filmes = [i for i in fixtures.FIXTURES if i.source is CatalogSource.TMDB]
-    assert all(i.poster_url for i in filmes)
+def test_fixtures_tem_poster_e_genero():
+    """O pôster carrega o peso visual da vitrine; sem ele o card fica quebrado.
+
+    E o gênero é o que alimenta as pílulas de filtro em modo offline.
+    """
+    assert all(i.poster_url for i in fixtures.FIXTURES)
+    assert all(i.suggested_genre for i in fixtures.FIXTURES)
 
 
 def test_fixtures_refs_sao_unicas():

@@ -80,13 +80,5 @@ def test_sem_chave_o_catalogo_fica_offline():
     assert _config().catalog_offline is True
 
 
-@pytest.mark.parametrize(
-    "chaves",
-    [
-        {"tmdb_api_key": "x"},
-        {"ticketmaster_api_key": "y"},
-        {"tmdb_api_key": "x", "ticketmaster_api_key": "y"},
-    ],
-)
-def test_uma_chave_basta_para_sair_do_offline(chaves):
-    assert _config(**chaves).catalog_offline is False
+def test_com_chave_sai_do_offline():
+    assert _config(tmdb_api_key="x").catalog_offline is False

@@ -3,8 +3,8 @@
 export type Papel = 'ORGANIZER' | 'CUSTOMER' | 'GATE'
 export type Layout = 'SEATED' | 'GENERAL'
 
-/** Gêneros de filme e de show no mesmo tipo — a vitrine filtra por gênero
- *  independentemente do tipo de evento. */
+/** Gêneros de filme. O enum do back-end ainda tem os musicais, herdados de
+ *  quando havia shows; a interface só oferece os que têm catálogo. */
 export type Genero =
   | 'ACAO'
   | 'AVENTURA'
@@ -17,17 +17,6 @@ export type Genero =
   | 'ROMANCE'
   | 'SUSPENSE'
   | 'TERROR'
-  | 'AXE'
-  | 'ELETRONICA'
-  | 'FORRO'
-  | 'FUNK'
-  | 'MPB'
-  | 'PAGODE'
-  | 'RAP'
-  | 'REGGAE'
-  | 'ROCK'
-  | 'SAMBA'
-  | 'SERTANEJO'
 export type StatusEvento = 'DRAFT' | 'PUBLISHED' | 'CANCELLED'
 export type StatusIngresso = 'VALID' | 'USED' | 'CANCELLED'
 export type ResultadoPortaria = 'VALID' | 'INVALID' | 'ALREADY_USED' | 'WRONG_EVENT'
@@ -144,7 +133,7 @@ export type RespostaPortaria = {
 
 export type ItemCatalogo = {
   ref: string
-  source: 'tmdb' | 'ticketmaster'
+  source: 'tmdb'
   title: string
   synopsis: string | null
   poster_url: string | null

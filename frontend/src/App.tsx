@@ -20,11 +20,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route element={<Layout />}>
-            {/* Público. A vitrine tem duas abas e a escolhida vive na URL,
-                então o link de uma aba é compartilhável. */}
+            {/* Público */}
             <Route path="/" element={<Vitrine />} />
-            <Route path="/shows" element={<Vitrine />} />
-            <Route path="/cinema" element={<Vitrine />} />
             <Route path="/eventos/:id" element={<DetalheEvento />} />
             <Route path="/entrar" element={<Entrar />} />
             <Route path="/criar-conta" element={<CriarConta />} />

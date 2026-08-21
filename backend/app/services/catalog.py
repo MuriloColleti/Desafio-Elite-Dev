@@ -1,16 +1,18 @@
-"""Serviço de catálogo: unifica os provedores e cacheia o resultado.
+"""Serviço de catálogo: fala com o provedor e cacheia o resultado.
 
 Duas responsabilidades:
 
-1. **Fan-out tolerante a falha.** Consulta os provedores configurados em
-   paralelo. Um provedor fora do ar não derruba a busca — devolve lista vazia e
-   os outros seguem. Sem nenhuma chave configurada, cai nas fixtures locais.
-2. **Cache no Redis.** As duas APIs têm rate limit, e a busca do organizador
-   repete muito o mesmo termo. O cache é compartilhado entre instâncias, então
-   escalar não multiplica o consumo de quota.
+1. **Tolerância a falha.** Provedor fora do ar devolve lista vazia em vez de
+   derrubar a tela, e sem chave configurada cai nas fixtures locais — o que
+   permite percorrer o fluxo inteiro sem cadastrar chave em serviço nenhum.
+2. **Cache no Redis.** O TMDb tem rate limit, e a busca do organizador repete
+   muito o mesmo termo. O cache é compartilhado entre instâncias, então escalar
+   não multiplica o consumo de quota.
+
+O fan-out em paralelo saiu junto com o Ticketmaster: com um provedor só, o
+`asyncio.gather` era cerimônia sem função.
 """
 
-import asyncio
 import json
 from dataclasses import asdict
 from datetime import datetime
@@ -19,22 +21,23 @@ import redis
 
 from app.core.config import settings
 from app.core.redis_client import client
+from app.models.enums import Genre
 from app.providers import fixtures
 from app.providers.base import CatalogItem, CatalogProvider, CatalogSource, parse_ref
-from app.providers.ticketmaster import TicketmasterProvider
 from app.providers.tmdb import TMDbProvider
 
 _CACHE_PREFIX = "catalog:"
 
 
 def _provedores() -> list[CatalogProvider]:
-    """Só os que têm chave. Lista vazia significa modo offline."""
-    ativos: list[CatalogProvider] = []
-    if settings.tmdb_api_key:
-        ativos.append(TMDbProvider(settings.tmdb_api_key))
-    if settings.ticketmaster_api_key:
-        ativos.append(TicketmasterProvider(settings.ticketmaster_api_key))
-    return ativos
+    """Lista vazia significa modo offline (fixtures locais).
+
+    Continua devolvendo lista, e não um provedor único, porque somar outra fonte
+    depois não deve mudar a forma de quem chama.
+    """
+    if not settings.tmdb_api_key:
+        return []
+    return [TMDbProvider(settings.tmdb_api_key)]
 
 
 # --- serialização para o cache ---
@@ -47,6 +50,7 @@ def _dump(itens: list[CatalogItem]) -> str:
         d["suggested_starts_at"] = (
             i.suggested_starts_at.isoformat() if i.suggested_starts_at else None
         )
+        d["suggested_genre"] = str(i.suggested_genre) if i.suggested_genre else None
         return d
 
     return json.dumps([encode(i) for i in itens])
@@ -65,6 +69,11 @@ def _load(raw: str) -> list[CatalogItem]:
                 poster_url=d.get("poster_url"),
                 suggested_starts_at=datetime.fromisoformat(quando) if quando else None,
                 suggested_venue=d.get("suggested_venue"),
+                suggested_city=d.get("suggested_city"),
+                suggested_state=d.get("suggested_state"),
+                suggested_genre=(
+                    Genre(d["suggested_genre"]) if d.get("suggested_genre") else None
+                ),
             )
         )
     return itens
@@ -111,29 +120,23 @@ async def search(query: str, source: CatalogSource | None = None, limit: int = 1
     ativos = [p for p in _provedores() if source is None or p.source is source]
 
     if not ativos:
-        # Modo offline: fixtures locais, também filtradas por origem.
+        # Modo offline: fixtures locais.
         itens = fixtures.buscar(termo, limit)
         if source is not None:
             itens = [i for i in itens if i.source is source]
         _cache_set(chave, itens)
         return itens
 
-    # Fan-out. return_exceptions=True para um provedor lento ou quebrado não
-    # anular o resultado do outro.
-    resultados = await asyncio.gather(
-        *(p.search(termo, limit) for p in ativos),
-        return_exceptions=True,
-    )
-
     itens: list[CatalogItem] = []
-    for r in resultados:
-        if isinstance(r, list):
-            itens.extend(r)
+    for p in ativos:
+        try:
+            itens.extend(await p.search(termo, limit))
+        except Exception:
+            # Provedor fora do ar não derruba a busca: a tela mostra o que der,
+            # e o organizador ainda pode criar evento com título livre.
+            continue
 
-    # Intercala as origens em vez de concatenar: com 12 filmes seguidos de 12
-    # shows, o organizador que não rolar a lista nunca vê um show.
-    itens = _intercalar(itens)[:limit]
-
+    itens = itens[:limit]
     _cache_set(chave, itens)
     return itens
 
@@ -159,17 +162,3 @@ async def get(ref: str) -> CatalogItem | None:
 
     _cache_set(f"ref:{ref}", [item] if item else [])
     return item
-
-
-def _intercalar(itens: list[CatalogItem]) -> list[CatalogItem]:
-    """Alterna itens de origens diferentes, preservando a ordem de cada uma."""
-    por_origem: dict[CatalogSource, list[CatalogItem]] = {}
-    for i in itens:
-        por_origem.setdefault(i.source, []).append(i)
-
-    saida: list[CatalogItem] = []
-    for nivel in range(max((len(v) for v in por_origem.values()), default=0)):
-        for lista in por_origem.values():
-            if nivel < len(lista):
-                saida.append(lista[nivel])
-    return saida

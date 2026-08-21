@@ -50,7 +50,7 @@ export function CartaoIngresso({ ingresso }: { ingresso: Ingresso }) {
           </div>
           <div>
             <dt>Tipo</dt>
-            <dd>{ingresso.event_layout === 'SEATED' ? 'Lugar marcado' : 'Pista'}</dd>
+            <dd>{ingresso.event_layout === 'SEATED' ? 'Lugar marcado' : 'Sem lugar marcado'}</dd>
           </div>
           {usado && ingresso.used_at && (
             <div>

@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, NavLink, Outlet, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { useSessao } from '../auth/Sessao'
 import { SeletorLocal } from './SeletorLocal'
@@ -24,7 +24,6 @@ function iniciais(nome: string): string {
 export function Layout() {
   const { usuario, sair } = useSessao()
   const navegar = useNavigate()
-  const { pathname } = useLocation()
   const [params] = useSearchParams()
 
   const [termo, setTermo] = useState(params.get('q') ?? '')
@@ -52,9 +51,8 @@ export function Layout() {
     // página 4 e o gênero anterior irrelevantes, e insistir neles mostraria
     // vazio com resultado disponível.
 
-    // Mantém a aba aberta; qualquer outra tela volta para a vitrine.
-    const base = pathname === '/shows' ? '/shows' : '/'
-    return qs.size > 0 ? `${base}?${qs}` : base
+    // Buscar de qualquer tela leva de volta à vitrine com o filtro aplicado.
+    return qs.size > 0 ? `/?${qs}` : '/'
   }
 
   async function encerrar() {
@@ -85,7 +83,7 @@ export function Layout() {
               </span>
               <input
                 type="search"
-                placeholder="Buscar filme, show ou local…"
+                placeholder="Buscar filme ou cinema…"
                 value={termo}
                 onChange={(e) => setTermo(e.target.value)}
                 aria-label="Buscar eventos"

@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 from app.api.deps import RequireOrganizer
 from app.core.config import settings
-from app.models.enums import EventLayout
+from app.models.enums import EventLayout, Genre
 from app.providers.base import CatalogItem, CatalogSource
 from app.services import catalog
 
@@ -25,6 +25,9 @@ class CatalogItemOut(BaseModel):
     poster_url: str | None
     suggested_starts_at: str | None
     suggested_venue: str | None
+    suggested_city: str | None
+    suggested_state: str | None
+    suggested_genre: Genre | None
     suggested_layout: EventLayout
 
     @classmethod
@@ -39,6 +42,9 @@ class CatalogItemOut(BaseModel):
                 i.suggested_starts_at.isoformat() if i.suggested_starts_at else None
             ),
             suggested_venue=i.suggested_venue,
+            suggested_city=i.suggested_city,
+            suggested_state=i.suggested_state,
+            suggested_genre=i.suggested_genre,
             suggested_layout=i.suggested_layout,
         )
 

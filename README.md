@@ -1,13 +1,17 @@
 # Palco — Plataforma de Eventos e Ingressos
 
-Desafio Elite Dev (Verzel). Uma plataforma onde um **organizador** publica eventos a partir de um
-catálogo externo (filmes do TMDb, shows do Ticketmaster), um **cliente** reserva lugar, paga de
-forma simulada e recebe um ingresso com QR, e a **portaria** valida esse ingresso na entrada.
+Desafio Elite Dev (Verzel). Uma plataforma de **sessões de cinema**: o organizador publica
+sessões a partir do catálogo do TMDb, o cliente escolhe o assento no mapa da sala, paga de forma
+simulada e recebe um ingresso com QR, e a portaria valida esse ingresso na entrada.
 
+> **Escopo:** a plataforma vende **sessões de cinema**. O enunciado permite usar Ticketmaster,
+> TMDb ou os dois; ficou só o TMDb, por não ter conseguido chave do Ticketmaster. Os dois fluxos
+> de reserva (mapa de assentos e por quantidade) continuam implementados.
+>
 > **Status:** o fluxo do enunciado funciona **ponta a ponta** — vitrine, criação de evento a partir
 > do catálogo, reserva com mapa de assentos ou pista, pagamento simulado com recusa, ingresso com
-> QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 228 testes;
-> front-end com 64. O que falta está em [Status de implementação](#status-de-implementação) —
+> QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 209 testes;
+> front-end com 62. O que falta está em [Status de implementação](#status-de-implementação) —
 > principalmente cobertura de testes do front e o deploy.
 
 ---
@@ -20,7 +24,7 @@ forma simulada e recebe um ingresso com QR, e a **portaria** valida esse ingress
 - [Como rodar](#como-rodar)
 - [Banco de dados](#banco-de-dados)
 - [Variáveis de ambiente](#variáveis-de-ambiente)
-- [Chaves das APIs externas](#chaves-das-apis-externas)
+- [Chave da API externa](#chave-da-api-externa)
 - [Dados semeados (seed)](#dados-semeados-seed)
 - [Percorrendo o fluxo completo](#percorrendo-o-fluxo-completo)
 - [Autenticação: sessão opaca em Redis](#autenticação-sessão-opaca-em-redis)
@@ -38,12 +42,18 @@ forma simulada e recebe um ingresso com QR, e a **portaria** valida esse ingress
 O enunciado diz que o escopo é pequeno de propósito e que o que interessa é o raciocínio. Então
 registro aqui as decisões que tomei antes de escrever código, e o que descartei.
 
-**Duas APIs externas, um catálogo só.** Usei TMDb *e* Ticketmaster porque os dois fluxos de
-reserva do PDF pedem naturezas diferentes de evento: filme quer **mapa de assentos** (cinema tem
-lugar marcado), show quer **quantidade** (pista não tem lugar). Em vez de dois caminhos paralelos
-no sistema, os dois provedores entram por uma interface única `CatalogProvider` e viram um
-`CatalogItem` normalizado. O resto da aplicação não sabe de onde o item veio — e é isso que
-permite que o mesmo formulário de criação de evento sirva para filme e para show.
+**Só o TMDb, atrás de uma interface.** O enunciado permite uma API, a outra ou as duas. Comecei
+com as duas, mas o Ticketmaster saiu por falta de chave — e a interface `CatalogProvider`
+permaneceu: o domínio consome `CatalogItem` normalizado, não a resposta de um provedor. Somar
+outra fonte depois não toca em nada além de `providers/`.
+
+Com a chave real, a busca vazia mostra **o que está em cartaz no Brasil** (`/movie/now_playing`),
+que é o que o organizador quer ver ao abrir a tela de criação — e não uma lista vazia esperando
+um termo.
+
+**Os dois layouts de reserva continuam.** O enunciado valoriza implementar mapa de assentos *e*
+quantidade. Cinema é lugar marcado, mas o layout sem assento serve para sessão ao ar livre e
+cine-drive-in, e o seed inclui uma para o fluxo ficar demonstrável.
 
 **O evento não é o item do catálogo.** Um filme do TMDb não tem data, local, capacidade nem
 preço — isso é decisão do organizador. Então `Event` é uma entidade nossa que *referencia* um
@@ -156,11 +166,11 @@ Sem ela é uma grade abstrata e ninguém sabe onde é a frente da sala.
                                                     │
                           ┌─────────────────────────┼─────────────────────┐
                           ▼                         ▼                     ▼
-    ┌─────────────────┐  ┌──────────────┐  ┌──────────────────┐  ┌───────────────┐
-    │   PostgreSQL    │  │    Redis     │  │  TMDb (filmes)   │  │ Ticketmaster  │
-    │  eventos,       │  │  sessões,    │  │                  │  │   (shows)     │
-    │  reservas,      │  │  cache do    │  └──────────────────┘  └───────────────┘
-    │  ingressos      │  │  catálogo    │        via CatalogProvider
+    ┌─────────────────┐  ┌──────────────┐  ┌──────────────────────────┐
+    │   PostgreSQL    │  │    Redis     │  │   TMDb (filmes)          │
+    │  eventos,       │  │  sessões,    │  │   via CatalogProvider    │
+    │  reservas,      │  │  cache do    │  │   (fixtures se sem chave)│
+    │  ingressos      │  │  catálogo    │  └──────────────────────────┘
     └─────────────────┘  └──────────────┘
 ```
 
@@ -182,7 +192,7 @@ domínio sem servidor no meio.
 | Sessão        | Redis 7                                                 |
 | Auth          | Sessão opaca em Redis, 3 papéis: ORGANIZER, CUSTOMER, GATE |
 | QR            | `qrcode` (geração), `html5-qrcode` (leitura via câmera)  |
-| Catálogo      | TMDb API + Ticketmaster Discovery API v2                 |
+| Catálogo      | TMDb API (v3)                                            |
 | Testes        | pytest (back), Vitest (front)                            |
 | Infra local   | Docker Compose                                           |
 
@@ -368,20 +378,16 @@ cadeira física; identifica uma posição dentro de um evento.
 
 ---
 
-## Chaves das APIs externas
+## Chave da API externa
 
-Ambas são gratuitas e saem na hora.
+Gratuita e sai na hora.
 
 **TMDb** — crie conta em [themoviedb.org](https://www.themoviedb.org/signup), vá em
 *Settings → API*, peça uma chave de uso pessoal e copie a **API Key (v3 auth)** para
 `TMDB_API_KEY`.
 
-**Ticketmaster** — crie conta em
-[developer.ticketmaster.com](https://developer.ticketmaster.com/), a app padrão já vem com uma
-chave; copie o **Consumer Key** para `TICKETMASTER_API_KEY`.
-
-**Sem as chaves a aplicação sobe.** O catálogo cai para um conjunto de itens de exemplo em
-`backend/app/providers/fixtures/`, e a busca avisa na tela que está em modo offline. Isso é
+**Sem a chave a aplicação sobe.** O catálogo cai para um conjunto de 49 filmes de exemplo em
+`backend/app/providers/fixtures.py`, e a busca avisa na tela que está em modo offline. Isso é
 proposital: quem avalia consegue percorrer todo o fluxo de compra e validação sem cadastrar chave
 em serviço nenhum. O que não funciona sem chave é apenas a busca por títulos reais.
 
@@ -559,7 +565,7 @@ POST   /auth/login                    → abre sessão (cookie httponly + sessio
 POST   /auth/logout                   → encerra a sessão no servidor
 GET    /auth/me                       → usuário atual
 
-GET    /catalog/search?q=&source=     → busca em TMDb e/ou Ticketmaster  [ORGANIZER]
+GET    /catalog/search?q=              → busca no TMDb (em cartaz se q vazio)  [ORGANIZER]
 
 GET    /events?q=&layout=&genre=&city=&state=&limit=&offset=
                                       → vitrine paginada: {items, total, limit, offset}
@@ -723,7 +729,7 @@ Usei **Claude Code (Opus)** como par ao longo do desafio. O que ficou com cada u
 
 - Boilerplate: configuração do FastAPI, modelos SQLAlchemy a partir do modelo que desenhei,
   migrations Alembic, setup do Vite.
-- Clientes HTTP do TMDb e do Ticketmaster e o mapeamento para `CatalogItem`.
+- Cliente HTTP do TMDb e o mapeamento para `CatalogItem`, incluindo a tabela de gêneros.
 - Componente de mapa de assentos (a lógica de grid; o visual foi ajustado à mão).
 - Casos de teste, e a redação deste README a partir das minhas decisões.
 
@@ -754,7 +760,7 @@ de que já esteja pronto.
 | Autenticação por sessão opaca + 3 papéis       | ✅ pronto       |
 | Garantia de assento único (constraint + teste) | ✅ pronto       |
 | Seed de dados de teste                         | ✅ pronto       |
-| Catálogo TMDb + Ticketmaster (+ modo offline)   | ✅ pronto       |
+| Catálogo TMDb ao vivo (+ fallback offline)      | ✅ pronto       |
 | CRUD de eventos (organizador)                  | ✅ pronto       |
 | Reserva com mapa de assentos + pista           | ✅ pronto       |
 | Pagamento simulado (aprovação e recusa)        | ✅ pronto       |
@@ -763,8 +769,8 @@ de que já esteja pronto.
 | Front-end: vitrine, reserva, checkout, ingressos | ✅ pronto      |
 | Front-end: portaria e painel do organizador    | ✅ pronto       |
 | Leitura do QR pela câmera                      | ✅ pronto       |
-| Testes do back-end (228)                       | ✅ pronto       |
-| Testes do front-end (64)                       | 🟡 parcial      |
+| Testes do back-end (209)                       | ✅ pronto       |
+| Testes do front-end (62)                       | 🟡 parcial      |
 | Docker Compose (um comando)                    | ✅ pronto       |
 | Configuração de deploy (Render + Vercel)       | ✅ pronto       |
 | Deploy público publicado                       | 🔜 pendente     |

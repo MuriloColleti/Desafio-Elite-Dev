@@ -52,5 +52,3 @@ services:
       # títulos reais deixa de funcionar.
       - key: TMDB_API_KEY
         sync: false
-      - key: TICKETMASTER_API_KEY
-        sync: false

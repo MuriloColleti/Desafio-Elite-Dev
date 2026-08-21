@@ -1,12 +1,12 @@
 /**
- * Rótulos e agrupamento dos gêneros.
+ * Rótulos dos gêneros de filme.
  *
- * O back-end usa um enum só para filme e show (a vitrine filtra por gênero
- * independentemente do tipo), mas a interface precisa mostrar apenas os
- * gêneros da aba aberta — oferecer "Pagode" em Cinema seria ruído.
+ * O enum do back-end ainda carrega os gêneros musicais, de quando a plataforma
+ * também vendia shows. Não foram removidos do banco porque isso exigiria uma
+ * migration destrutiva sem ganho; a interface simplesmente não os oferece.
  */
 
-import type { Genero, Layout } from './tipos'
+import type { Genero } from './tipos'
 
 const ROTULOS: Record<Genero, string> = {
   ACAO: 'Ação',
@@ -20,20 +20,10 @@ const ROTULOS: Record<Genero, string> = {
   ROMANCE: 'Romance',
   SUSPENSE: 'Suspense',
   TERROR: 'Terror',
-  AXE: 'Axé',
-  ELETRONICA: 'Eletrônica',
-  FORRO: 'Forró',
-  FUNK: 'Funk',
-  MPB: 'MPB',
-  PAGODE: 'Pagode',
-  RAP: 'Rap',
-  REGGAE: 'Reggae',
-  ROCK: 'Rock',
-  SAMBA: 'Samba',
-  SERTANEJO: 'Sertanejo',
 }
 
-const DE_FILME: Genero[] = [
+/** Ordem alfabética: é como se procura numa lista de gêneros. */
+const TODOS: Genero[] = [
   'ACAO',
   'AVENTURA',
   'ANIMACAO',
@@ -47,25 +37,10 @@ const DE_FILME: Genero[] = [
   'TERROR',
 ]
 
-const DE_SHOW: Genero[] = [
-  'AXE',
-  'ELETRONICA',
-  'FORRO',
-  'FUNK',
-  'MPB',
-  'PAGODE',
-  'RAP',
-  'REGGAE',
-  'ROCK',
-  'SAMBA',
-  'SERTANEJO',
-]
-
 export function rotuloGenero(g: Genero | null): string | null {
   return g ? (ROTULOS[g] ?? g) : null
 }
 
-/** Gêneros que fazem sentido para o tipo de evento da aba. */
-export function generosDe(layout: Layout): Genero[] {
-  return layout === 'SEATED' ? DE_FILME : DE_SHOW
+export function generosDisponiveis(): Genero[] {
+  return TODOS
 }

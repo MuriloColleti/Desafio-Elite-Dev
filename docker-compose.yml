@@ -47,9 +47,8 @@ services:
       CORS_ORIGINS: http://localhost:5173
       PUBLIC_BASE_URL: http://localhost:5173
       DEBUG: 'true'
-      # Chaves opcionais: sem elas o catálogo usa as fixtures locais.
+      # Opcional: sem chave o catálogo usa as fixtures locais.
       TMDB_API_KEY: ${TMDB_API_KEY:-}
-      TICKETMASTER_API_KEY: ${TICKETMASTER_API_KEY:-}
       # O entrypoint migra sempre e semeia se o banco estiver vazio, então
       # `docker compose up` já entrega o ambiente pronto para percorrer.
       SEED_ON_BOOT: 'true'

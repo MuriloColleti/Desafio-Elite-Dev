@@ -57,7 +57,6 @@ class Settings(BaseSettings):
 
     # --- APIs externas ---
     tmdb_api_key: str | None = None
-    ticketmaster_api_key: str | None = None
     catalog_cache_ttl_seconds: int = 60 * 15
 
     @model_validator(mode="after")
@@ -95,8 +94,8 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def catalog_offline(self) -> bool:
-        """Sem nenhuma chave configurada, o catálogo usa as fixtures locais."""
-        return not (self.tmdb_api_key or self.ticketmaster_api_key)
+        """Sem chave configurada, o catálogo usa as fixtures locais."""
+        return not self.tmdb_api_key
 
 
 @lru_cache

@@ -37,11 +37,6 @@ def test_offline_busca_por_titulo(redis_fake, sem_chaves):
     assert [i.title for i in itens] == ["Parasita"]
 
 
-def test_offline_filtra_por_origem(redis_fake, sem_chaves):
-    filmes = asyncio.run(catalog.search("", source=CatalogSource.TMDB))
-    assert filmes and all(i.source is CatalogSource.TMDB for i in filmes)
-
-
 def test_offline_respeita_limite(redis_fake, sem_chaves):
     assert len(asyncio.run(catalog.search("", limit=3))) == 3
 
@@ -83,62 +78,15 @@ def _item(ref, source, titulo):
 
 
 def test_provedor_que_falha_nao_derruba_a_busca(redis_fake, monkeypatch):
-    """Um provedor fora do ar não pode zerar o resultado do outro."""
-    bom = ProvedorFalso(
-        CatalogSource.TMDB, [_item("tmdb:movie:1", CatalogSource.TMDB, "Filme")]
-    )
-    ruim = ProvedorFalso(CatalogSource.TICKETMASTER, [], explode=True)
-    monkeypatch.setattr(catalog, "_provedores", lambda: [bom, ruim])
+    """Provedor fora do ar devolve vazio em vez de estourar na tela.
 
-    itens = asyncio.run(catalog.search("x"))
-
-    assert [i.title for i in itens] == ["Filme"]
-    assert ruim.chamadas == 1, "o provedor quebrado foi consultado"
-
-
-def test_todos_os_provedores_falhando_devolve_lista_vazia(redis_fake, monkeypatch):
-    a = ProvedorFalso(CatalogSource.TMDB, [], explode=True)
-    b = ProvedorFalso(CatalogSource.TICKETMASTER, [], explode=True)
-    monkeypatch.setattr(catalog, "_provedores", lambda: [a, b])
+    O organizador ainda consegue criar evento com título livre, sem catálogo.
+    """
+    ruim = ProvedorFalso(CatalogSource.TMDB, [], explode=True)
+    monkeypatch.setattr(catalog, "_provedores", lambda: [ruim])
 
     assert asyncio.run(catalog.search("x")) == []
-
-
-def test_intercala_as_origens(redis_fake, monkeypatch):
-    """Concatenar esconderia os shows abaixo de 12 filmes."""
-    filmes = ProvedorFalso(
-        CatalogSource.TMDB,
-        [_item(f"tmdb:movie:{n}", CatalogSource.TMDB, f"Filme {n}") for n in range(3)],
-    )
-    shows = ProvedorFalso(
-        CatalogSource.TICKETMASTER,
-        [
-            _item(f"ticketmaster:event:{n}", CatalogSource.TICKETMASTER, f"Show {n}")
-            for n in range(3)
-        ],
-    )
-    monkeypatch.setattr(catalog, "_provedores", lambda: [filmes, shows])
-
-    origens = [i.source for i in asyncio.run(catalog.search("x"))]
-
-    assert origens[0] is not origens[1], "as origens deveriam alternar"
-
-
-def test_filtro_por_origem_nao_consulta_o_outro_provedor(redis_fake, monkeypatch):
-    """Economia de quota: filtrar por TMDb não deve gastar chamada no outro."""
-    filmes = ProvedorFalso(
-        CatalogSource.TMDB, [_item("tmdb:movie:1", CatalogSource.TMDB, "Filme")]
-    )
-    shows = ProvedorFalso(CatalogSource.TICKETMASTER, [])
-    monkeypatch.setattr(catalog, "_provedores", lambda: [filmes, shows])
-
-    asyncio.run(catalog.search("x", source=CatalogSource.TMDB))
-
-    assert filmes.chamadas == 1
-    assert shows.chamadas == 0
-
-
-# --- Cache ---
+    assert ruim.chamadas == 1, "o provedor foi consultado"
 
 
 def test_segunda_busca_vem_do_cache(redis_fake, monkeypatch):
@@ -167,20 +115,6 @@ def test_termos_diferentes_nao_compartilham_cache(redis_fake, sem_chaves):
     a = asyncio.run(catalog.search("parasita"))
     b = asyncio.run(catalog.search("chihiro"))
     assert [i.ref for i in a] != [i.ref for i in b]
-
-
-def test_cache_distingue_o_filtro_de_origem(redis_fake, sem_chaves):
-    """Sem isso, buscar filtrado depois de buscar tudo devolveria o resultado errado.
-
-    Compara o conteúdo e não o tamanho: com o catálogo maior que o limite, as
-    duas listas têm o mesmo comprimento e a asserção por tamanho passaria a ser
-    vazia — foi o que aconteceu quando as fixtures cresceram.
-    """
-    todos = asyncio.run(catalog.search("", limit=99))
-    filmes = asyncio.run(catalog.search("", source=CatalogSource.TMDB, limit=99))
-
-    assert any(i.source is CatalogSource.TICKETMASTER for i in todos)
-    assert all(i.source is CatalogSource.TMDB for i in filmes)
 
 
 def test_cache_corrompido_nao_quebra_a_busca(redis_fake, sem_chaves):

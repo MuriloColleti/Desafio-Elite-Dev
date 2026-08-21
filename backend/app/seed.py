@@ -38,7 +38,6 @@ from app.models.enums import (
     TicketStatus,
 )
 from app.providers import fixtures
-from app.providers.base import CatalogSource
 
 SENHA = "senha123"
 
@@ -108,8 +107,7 @@ def povoar(db: Session) -> dict[str, str]:
     #
     # Datas relativas ao momento da execução: com data fixa o seed envelhece e
     # a vitrine aparece vazia semanas depois.
-    filmes = [i for i in fixtures.FIXTURES if i.source is CatalogSource.TMDB]
-    shows = [i for i in fixtures.FIXTURES if i.source is CatalogSource.TICKETMASTER]
+    filmes = list(fixtures.FIXTURES)
 
     def evento_de(
         item,
@@ -190,23 +188,19 @@ def povoar(db: Session) -> dict[str, str]:
             )
         )
 
-    CAPACIDADES = (500, 800, 350, 250, 1200, 600, 400, 900)
-    PRECOS_SHOW = (9000, 12000, 7500, 6000, 15000, 8000, 5500, 11000)
-
-    eventos_show = []
-    for n, item in enumerate(shows):
-        eventos_show.append(
-            evento_de(
-                item,
-                venue=item.suggested_venue or "Local a definir",
-                cidade=item.suggested_city or "São Paulo",
-                uf=item.suggested_state or "SP",
-                dias=3 + n * 3.1,
-                preco=PRECOS_SHOW[n % len(PRECOS_SHOW)],
-                layout=EventLayout.GENERAL,
-                capacidade=CAPACIDADES[n % len(CAPACIDADES)],
-            )
-        )
+    # Uma sessão ao ar livre, sem lugar marcado: a plataforma vende cinema, mas o
+    # layout GENERAL continua disponível para cine-drive-in e sessão em praça —
+    # e é o que mantém os dois fluxos de reserva do enunciado cobertos.
+    ao_ar_livre = evento_de(
+        filmes[3],
+        venue="Cine Autorama — Pátio",
+        cidade="São Paulo",
+        uf="SP",
+        dias=6.5,
+        preco=2000,
+        layout=EventLayout.GENERAL,
+        capacidade=400,
+    )
 
     # Rascunho: o painel do organizador precisa mostrar estado misto, senão não
     # se vê a diferença entre publicar e não publicar.
@@ -223,12 +217,13 @@ def povoar(db: Session) -> dict[str, str]:
         por_fileira=10,
     )
 
-    db.add_all([*eventos_cinema, *eventos_show, rascunho])
+    db.add_all([*eventos_cinema, ao_ar_livre, rascunho])
     db.flush()
 
-    # O primeiro filme e o primeiro show são os usados no roteiro de avaliação.
+    # A primeira sessão é a do roteiro de avaliação (a portaria valida esta).
     cinema = eventos_cinema[0]
-    show = eventos_show[0]
+    # A segunda serve para o caso "evento errado" da portaria.
+    outro_evento = eventos_cinema[1]
 
     # A portaria valida a entrada de um evento específico — é o que permite
     # responder "evento errado" em vez de aceitar qualquer ingresso legítimo.
@@ -261,7 +256,7 @@ def povoar(db: Session) -> dict[str, str]:
     # a vitrine teria uma dezena de itens com procura e trinta com zero.
     OCUPACAO_ALVO = (0.94, 0.12, 0.58, 0.0, 0.76, 0.31, 0.05, 0.63, 0.22, 0.88, 0.0, 0.44)
 
-    for n, evento in enumerate(eventos_cinema[1:] + eventos_show[1:]):
+    for n, evento in enumerate(eventos_cinema[2:]):
         alvo = OCUPACAO_ALVO[n % len(OCUPACAO_ALVO)]
         vendidos = int(evento.capacity * alvo)
         if vendidos == 0:
@@ -345,39 +340,40 @@ def povoar(db: Session) -> dict[str, str]:
     )
     db.add(ingresso_usado)
 
-    # --- Ingresso de OUTRO evento (para ver "evento errado") ---
-    reserva_show = Reservation(
-        event_id=show.id,
+    # --- Ingresso de OUTRO evento (para ver "evento errado" na portaria) ---
+    reserva_outro = Reservation(
+        event_id=outro_evento.id,
         customer_id=ana.id,
-        seat_label=None,
-        quantity=2,
+        seat_label="B3",
+        quantity=1,
         status=ReservationStatus.PAID,
     )
-    db.add(reserva_show)
+    db.add(reserva_outro)
     db.flush()
     db.add(
         Payment(
-            reservation_id=reserva_show.id,
+            reservation_id=reserva_outro.id,
             status=PaymentStatus.APPROVED,
-            amount_cents=show.price_cents * 2,
+            amount_cents=outro_evento.price_cents,
         )
     )
-    ingresso_show = Ticket(
-        reservation_id=reserva_show.id,
+    ingresso_outro = Ticket(
+        reservation_id=reserva_outro.id,
         share_token=secrets.token_urlsafe(24),
         status=TicketStatus.VALID,
     )
-    db.add(ingresso_show)
+    db.add(ingresso_outro)
 
     db.commit()
 
     return {
         "ingresso_valido": sign_ticket_code(ingresso_ana.id),
         "ingresso_usado": sign_ticket_code(ingresso_usado.id),
-        "ingresso_outro_evento": sign_ticket_code(ingresso_show.id),
+        "ingresso_outro_evento": sign_ticket_code(ingresso_outro.id),
         "share_token_ana": ingresso_ana.share_token,
         "evento_cinema": cinema.id,
-        "evento_show": show.id,
+        "evento_outro": outro_evento.id,
+        "evento_pista": ao_ar_livre.id,
     }
 
 

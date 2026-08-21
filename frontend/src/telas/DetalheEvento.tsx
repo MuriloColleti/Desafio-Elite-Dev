@@ -125,7 +125,7 @@ export function DetalheEvento() {
           <div className="pilha pilha-8">
             <div className="linha-flex" style={{ gap: 8 }}>
               <span className="etiqueta etiqueta-marca">
-                {evento.layout === 'SEATED' ? '🎬 Lugar marcado' : '🎸 Pista'}
+                {evento.layout === 'SEATED' ? '🎬 Lugar marcado' : '🎫 Sem lugar marcado'}
               </span>
               {rotuloGenero(evento.genre) && (
                 <span className="etiqueta etiqueta-usado">{rotuloGenero(evento.genre)}</span>

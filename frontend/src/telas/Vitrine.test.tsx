@@ -1,13 +1,11 @@
 /**
- * Vitrine com abas.
+ * Vitrine.
  *
- * O que importa: cada aba mostra só o seu tipo, o contador reflete o conteúdo
- * real, e a aba escolhida está na URL — senão o link não é compartilhável e o
- * botão "voltar" do navegador não funciona.
+ * Sem abas: a plataforma vende só sessões de cinema. O que se testa é o filtro
+ * por gênero e por localização vindo da URL, e a paginação.
  *
- * Busca por `heading` e não por texto: quando o evento não tem pôster, o
- * título aparece também na arte de fallback (decorativa, `aria-hidden`), e
- * `getByText` acharia os dois.
+ * Busca por `heading` dentro da grade, e não por texto: o mesmo evento aparece
+ * no carrossel de destaques e na grade, e `getByText` acharia os dois.
  */
 
 import { render, screen, waitFor } from '@testing-library/react'
@@ -22,10 +20,10 @@ import { Vitrine } from './Vitrine'
 function evento(over: Partial<Evento> = {}): Evento {
   return {
     id: crypto.randomUUID(),
-    title: 'Evento',
+    title: 'Filme',
     synopsis: null,
     poster_url: null,
-    venue: 'Local',
+    venue: 'Sala 1',
     city: 'São Paulo',
     state: 'SP',
     country: 'BR',
@@ -41,27 +39,31 @@ function evento(over: Partial<Evento> = {}): Evento {
 }
 
 const FILMES = [
-  evento({ title: 'Parasita', layout: 'SEATED', genre: 'SUSPENSE' }),
-  evento({ title: 'O Grande Truque', layout: 'SEATED', genre: 'SUSPENSE' }),
-  evento({ title: 'Corra!', layout: 'SEATED', genre: 'TERROR' }),
+  evento({ title: 'Parasita', genre: 'SUSPENSE' }),
+  evento({ title: 'Corra!', genre: 'TERROR' }),
+  evento({ title: 'Duna', genre: 'FICCAO', city: 'Recife', state: 'PE' }),
 ]
-const SHOWS = [
-  evento({ title: 'Baile do Terreiro', layout: 'GENERAL', venue: 'Circo Voador', genre: 'SAMBA' }),
-]
-
-/** Busca o título na **grade**, não no carrossel: o mesmo evento aparece nos
- *  dois, e a grade é o que a aba filtra. */
-function naGrade(titulo: string): HTMLElement | null {
-  const grade = document.querySelector('.grade-eventos')
-  if (!grade) return null
-  return (
-    Array.from(grade.querySelectorAll('h3')).find((h) => h.textContent === titulo) ?? null
-  )
-}
 
 /** A API devolve um envelope paginado; o mock precisa refletir isso. */
 function pagina(itens: Evento[]) {
   return { items: itens, total: itens.length, limit: 12, offset: 0 }
+}
+
+/** Mock que filtra como o servidor. Devolver a lista inteira independentemente
+ *  dos filtros faria os testes passarem por acidente. */
+function mockApi(todos: Evento[]) {
+  return vi.spyOn(api, 'get').mockImplementation(async (caminho: string) => {
+    const qs = new URLSearchParams(caminho.split('?')[1] ?? '')
+    const genero = qs.get('genre')
+    const cidade = qs.get('city')
+
+    const itens = todos.filter(
+      (e) =>
+        (!genero || e.genre === genero) &&
+        (!cidade || e.city?.toLowerCase() === cidade.toLowerCase()),
+    )
+    return pagina(itens) as never
+  })
 }
 
 function montar(rota = '/') {
@@ -69,111 +71,58 @@ function montar(rota = '/') {
     <MemoryRouter initialEntries={[rota]}>
       <Routes>
         <Route path="/" element={<Vitrine />} />
-        <Route path="/shows" element={<Vitrine />} />
-        <Route path="/cinema" element={<Vitrine />} />
       </Routes>
     </MemoryRouter>,
   )
 }
 
-/** Mock que filtra como o servidor: por layout e por gênero da query.
- *  Devolver a lista inteira independentemente dos filtros faria os testes de
- *  aba passarem por acidente. */
-function mockApi(todos: Evento[]) {
-  return vi.spyOn(api, 'get').mockImplementation(async (caminho: string) => {
-    const qs = new URLSearchParams(caminho.split('?')[1] ?? '')
-    const layout = qs.get('layout')
-    const genero = qs.get('genre')
-
-    const itens = todos.filter(
-      (e) => (!layout || e.layout === layout) && (!genero || e.genre === genero),
-    )
-    return pagina(itens) as never
-  })
+/** Título na grade, não no carrossel. */
+function naGrade(titulo: string): HTMLElement | null {
+  const grade = document.querySelector('.grade-eventos')
+  if (!grade) return null
+  return Array.from(grade.querySelectorAll('h3')).find((h) => h.textContent === titulo) ?? null
 }
 
 describe('Vitrine', () => {
   beforeEach(() => {
-    mockApi([...FILMES, ...SHOWS])
+    mockApi(FILMES)
   })
 
-  it('abre na aba de cinema', async () => {
-    montar('/')
+  it('lista as sessões sem exigir login', async () => {
+    montar()
 
     await waitFor(() => expect(naGrade('Parasita')).not.toBeNull())
-    expect(screen.getByRole('tab', { name: /Cinema/ })).toHaveAttribute('aria-selected', 'true')
+    expect(naGrade('Duna')).not.toBeNull()
   })
 
-  it('mostra apenas filmes na aba de cinema', async () => {
-    montar('/')
+  it('não tem abas de tipo de evento', async () => {
+    // As abas existiam quando havia shows; sem a segunda fonte, uma aba
+    // solitária seria moldura vazia.
+    //
+    // Busca pelo grupo `tablist` de abas, e não por `role=tab`: os indicadores
+    // do carrossel também usam esse papel.
+    montar()
 
     await waitFor(() => expect(naGrade('Parasita')).not.toBeNull())
-    expect(naGrade('O Grande Truque')).not.toBeNull()
-    expect(naGrade('Baile do Terreiro')).toBeNull()
+    expect(screen.queryByRole('tablist', { name: 'Tipo de evento' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: /Cinema/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab', { name: /Shows/ })).not.toBeInTheDocument()
   })
 
-  it('mostra apenas shows na aba de shows', async () => {
-    montar('/shows')
+  it('oferece apenas gêneros que têm sessão', async () => {
+    montar()
 
-    await waitFor(() => expect(naGrade('Baile do Terreiro')).not.toBeNull())
-    expect(naGrade('Parasita')).toBeNull()
-  })
-
-  it('conta os eventos de cada aba', async () => {
-    montar('/')
-
-    // 3 filmes e 1 show: o contador evita clicar às cegas numa aba vazia.
-    await waitFor(() =>
-      expect(screen.getByRole('tab', { name: /Cinema/ })).toHaveTextContent(String(FILMES.length)),
-    )
-    expect(screen.getByRole('tab', { name: /Shows/ })).toHaveTextContent(String(SHOWS.length))
-  })
-
-  it('troca de aba ao clicar', async () => {
-    montar('/')
-    await waitFor(() => expect(naGrade('Parasita')).not.toBeNull())
-
-    await userEvent.click(screen.getByRole('tab', { name: /Shows/ }))
-
-    await waitFor(() => expect(naGrade('Baile do Terreiro')).not.toBeNull())
-    expect(naGrade('Parasita')).toBeNull()
-  })
-
-  it('oferece a outra aba quando a atual está vazia', async () => {
-    // Só shows cadastrados: quem cai em cinema precisa de uma saída, não de um
-    // vazio sem ação.
-    mockApi(SHOWS)
-    montar('/')
-
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /Ver shows e festas/ })).toBeInTheDocument(),
-    )
-  })
-
-  it('repassa ao servidor o termo que vem da URL', async () => {
-    // A busca mora no cabeçalho e chega por `?q=`. É o back-end que sabe filtrar
-    // por título E local; refazer isso no cliente divergiria da vitrine.
-    const buscar = mockApi(FILMES)
-    montar('/?q=parasita')
-
-    await waitFor(() => expect(buscar).toHaveBeenCalledWith(expect.stringContaining('q=parasita')))
-  })
-
-  it('oferece apenas os gêneros da aba aberta', async () => {
-    montar('/')
-
-    // Gêneros de filme aparecem; de show, não — oferecer "Samba" em Cinema
-    // seria ruído.
     await waitFor(() => expect(screen.getByRole('button', { name: 'Terror' })).toBeInTheDocument())
-    expect(screen.queryByRole('button', { name: 'Samba' })).not.toBeInTheDocument()
-  })
-
-  it('omite gênero que não tem nenhum evento', async () => {
-    montar('/')
-
     // Um filtro que devolve lista vazia é armadilha, não escolha.
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Terror' })).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: 'Romance' })).not.toBeInTheDocument()
+  })
+
+  it('não oferece gênero musical', async () => {
+    // Herança do enum do back-end, que ainda os carrega.
+    montar()
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Terror' })).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: 'Pagode' })).not.toBeInTheDocument()
   })
 
   it('repassa o gênero da URL ao servidor', async () => {
@@ -185,47 +134,66 @@ describe('Vitrine', () => {
     )
   })
 
+  it('filtra a grade pelo gênero', async () => {
+    montar('/?g=TERROR')
+
+    await waitFor(() => expect(naGrade('Corra!')).not.toBeNull())
+    expect(naGrade('Parasita')).toBeNull()
+  })
+
   it('marca o gênero ativo', async () => {
     montar('/?g=TERROR')
 
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Terror' })).toHaveClass('ativo'),
-    )
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Terror' })).toHaveClass('ativo'))
   })
 
-  it('contador da aba ignora o filtro de gênero', async () => {
-    // Senão "Shows (0)" apareceria só porque o gênero escolhido é de filme.
-    montar('/?g=TERROR')
+  it('repassa a cidade da URL ao servidor', async () => {
+    const buscar = mockApi(FILMES)
+    montar('/?cidade=Recife')
 
-    await waitFor(() => expect(screen.getByRole('tab', { name: /Shows/ })).toHaveTextContent('1'))
+    await waitFor(() => expect(buscar).toHaveBeenCalledWith(expect.stringContaining('city=Recife')))
   })
 
-  it('avisa quando a busca não acha nada', async () => {
+  it('mostra o local como filtro removível', async () => {
+    montar('/?cidade=Recife')
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Recife/ })).toBeInTheDocument())
+  })
+
+  it('repassa o termo de busca da URL', async () => {
+    const buscar = mockApi(FILMES)
+    montar('/?q=duna')
+
+    await waitFor(() => expect(buscar).toHaveBeenCalledWith(expect.stringContaining('q=duna')))
+  })
+
+  it('avisa quando nada é encontrado', async () => {
     mockApi([])
     montar('/?q=xyz')
 
     await waitFor(() => expect(screen.getByText(/Nada encontrado/)).toBeInTheDocument())
   })
 
-  it('mostra o termo ativo como pílula removível', async () => {
-    mockApi(FILMES)
-    montar('/?q=parasita')
+  it('combina gênero e cidade', async () => {
+    const buscar = mockApi(FILMES)
+    montar('/?g=FICCAO&cidade=Recife')
 
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /parasita/ })).toBeInTheDocument(),
-    )
+    await waitFor(() => {
+      const chamadas = buscar.mock.calls.map((c) => String(c[0]))
+      expect(chamadas.some((c) => c.includes('genre=FICCAO') && c.includes('city=Recife'))).toBe(
+        true,
+      )
+    })
   })
 
-  it('preserva o termo ao trocar de aba', async () => {
-    // Quem buscou "rock" em cinema quer ver "rock" em shows, não a lista toda.
-    mockApi([...FILMES, ...SHOWS])
-    montar('/?q=rock')
+  it('trocar de gênero volta para a primeira página', async () => {
+    // Continuar na página 4 depois de filtrar mostraria vazio mesmo havendo
+    // resultado.
+    montar('/?p=3')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Terror' })).toBeInTheDocument())
 
-    await waitFor(() => expect(screen.getByRole('tab', { name: /Shows/ })).toBeInTheDocument())
-    await userEvent.click(screen.getByRole('tab', { name: /Shows/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Terror' }))
 
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /rock/ })).toBeInTheDocument(),
-    )
+    await waitFor(() => expect(naGrade('Corra!')).not.toBeNull())
   })
 })

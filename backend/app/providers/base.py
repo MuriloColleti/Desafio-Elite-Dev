@@ -1,9 +1,8 @@
 """Contrato do catálogo externo.
 
-TMDb e Ticketmaster têm formatos e vocabulários distintos — filme não tem local,
-show não tem sinopse — mas o resto da aplicação não deve saber disso. Os dois
-entram por `CatalogProvider` e saem como `CatalogItem`, e é isso que permite ao
-organizador usar o mesmo formulário para os dois.
+Hoje só o TMDb, mas a interface `CatalogProvider` permanece: o que o domínio
+consome é `CatalogItem` normalizado, e não a resposta de um provedor específico.
+Trocar de fonte ou somar outra não toca em nada além de `providers/`.
 
 O `ref` (`tmdb:movie:550`) é a única coisa que atravessa a fronteira e volta:
 identifica a origem sem que o domínio precise interpretá-la.
@@ -19,7 +18,6 @@ from app.models.enums import EventLayout, Genre
 
 class CatalogSource(StrEnum):
     TMDB = "tmdb"
-    TICKETMASTER = "ticketmaster"
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,7 +36,8 @@ class CatalogItem:
     poster_url: str | None = None
 
     # Sugestões, não verdades: o organizador define data e local de fato.
-    # Filme não traz data de sessão; show do Ticketmaster traz.
+    # Filme não traz data de sessão nem local — os campos existem porque uma
+    # fonte futura pode trazê-los, e as fixtures os usam.
     suggested_starts_at: datetime | None = None
     suggested_venue: str | None = None
     suggested_city: str | None = None
@@ -47,16 +46,13 @@ class CatalogItem:
 
     @property
     def suggested_layout(self) -> EventLayout:
-        """Filme sugere assento marcado; show sugere pista.
+        """Filme sugere lugar marcado.
 
-        Só sugestão: quem decide é o organizador no formulário. Um show em
-        teatro pode ser SEATED, e uma sessão de cinema ao ar livre, GENERAL.
+        Só sugestão: quem decide é o organizador no formulário. Uma sessão ao ar
+        livre ou um cine-drive-in podem ser GENERAL, e o layout continua
+        disponível para isso.
         """
-        return (
-            EventLayout.SEATED
-            if self.source is CatalogSource.TMDB
-            else EventLayout.GENERAL
-        )
+        return EventLayout.SEATED
 
 
 class CatalogProvider(ABC):

@@ -48,11 +48,14 @@ def test_pagamento_aprovado_emite_ingresso(app_semeado):
 
 def test_total_multiplica_pela_quantidade(app_semeado):
     clientes, refs = app_semeado
-    reserva = _reservar(clientes["bruno"], refs["evento_show"], quantity=2)
+    # Preço lido do evento em vez de fixado: o seed muda, e a regra sob teste é
+    # a multiplicação, não o valor.
+    preco = clientes["anon"].get(f"/events/{refs['evento_pista']}").json()["price_cents"]
+    reserva = _reservar(clientes["bruno"], refs["evento_pista"], quantity=2)
 
     r = _pagar(clientes["bruno"], reserva["id"])
 
-    assert r.json()["amount_cents"] == 9000 * 2
+    assert r.json()["amount_cents"] == preco * 2
 
 
 # --- Pagamento recusado ---
@@ -113,7 +116,7 @@ def test_recusa_nao_emite_ingresso(app_semeado):
 def test_cada_cartao_de_teste_tem_seu_motivo(app_semeado, cartao, trecho):
     """Motivos distintos: a tela precisa dizer o que aconteceu."""
     clientes, refs = app_semeado
-    reserva = _reservar(clientes["bruno"], refs["evento_show"], quantity=1)
+    reserva = _reservar(clientes["bruno"], refs["evento_pista"], quantity=1)
 
     r = _pagar(clientes["bruno"], reserva["id"], cartao)
 

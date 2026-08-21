@@ -2,75 +2,28 @@
 
 /* ---------- Vitrine ---------- */
 
+/* Topo centralizado: sem abas, o título e os filtros ficam simétricos com a
+   grade em vez de ancorados na margem esquerda. */
+.vitrine-topo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
 .vitrine-cabeca {
   display: flex;
   flex-direction: column;
   gap: 10px;
   max-width: 56ch;
-}
-
-.vitrine-controles {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
-/* Abas — pílula deslizante em vez de sublinhado: fica claro qual está ativa
-   mesmo de relance, e o contador cabe dentro. */
-.abas {
-  display: flex;
-  gap: 4px;
-  padding: 4px;
-  background: var(--superficie);
-  border-radius: 999px;
-  box-shadow: var(--sombra-1);
-}
-
-.aba {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 18px;
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--texto-2);
-  font-size: 0.9rem;
-  font-weight: 600;
-  transition: background-color 0.16s, color 0.16s;
-  white-space: nowrap;
-}
-
-.aba:hover:not(.ativa) {
-  background: var(--fundo);
-  color: var(--texto);
-}
-
-.aba.ativa {
-  background: var(--texto);
-  color: #fff;
-}
-
-.aba-icone {
-  font-size: 1rem;
-  line-height: 1;
-}
-
-.aba-contador {
-  min-width: 21px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--fundo);
-  color: var(--texto-2);
-  font-size: 0.72rem;
-  font-weight: 700;
   text-align: center;
 }
 
-.aba.ativa .aba-contador {
-  background: rgba(255, 255, 255, 0.22);
-  color: #fff;
+.vitrine-filtros-ativos {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 /* No centro da barra: cresce até um teto, para não colar nas ações. */
@@ -1535,15 +1488,26 @@
 
 /* ---------- Filtro de gênero ---------- */
 
-/* Rolagem horizontal em vez de quebra de linha: onze gêneros em duas ou três
-   linhas empurrariam a grade para baixo da dobra. */
+/* Centralizado, com rolagem horizontal quando não couber: onze gêneros em duas
+   ou três linhas empurrariam a grade para baixo da dobra. */
 .generos {
   display: flex;
   gap: 8px;
-  overflow-x: auto;
+  justify-content: center;
+  flex-wrap: wrap;
+  max-width: 100%;
   padding-bottom: 4px;
-  scrollbar-width: thin;
-  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 640px) {
+  .generos {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
 }
 
 .generos::-webkit-scrollbar {
