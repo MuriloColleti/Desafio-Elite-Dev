@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime
 
-from sqlalchemy import Select, or_, select
+from sqlalchemy import Select, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import Forbidden, NotFound, ValidationFailed
@@ -29,17 +29,19 @@ def _base_vitrine() -> Select:
     )
 
 
-def listar_vitrine(
-    db: Session,
+def _aplicar_filtros(
+    stmt: Select,
     *,
-    busca: str | None = None,
-    layout: EventLayout | None = None,
-    genero: Genre | None = None,
-    limit: int = 24,
-    offset: int = 0,
-) -> list[Event]:
-    stmt = _base_vitrine()
+    busca: str | None,
+    layout: EventLayout | None,
+    genero: Genre | None,
+) -> Select:
+    """Os filtros da vitrine, num lugar só.
 
+    Extraído porque a contagem e a página precisam dos **mesmos** filtros: se
+    divergirem, o total não corresponde ao que a lista devolve e a paginação
+    aponta para páginas vazias.
+    """
     if busca:
         termo = f"%{busca.strip()}%"
         # ilike: busca sem diferenciar maiúsculas. Título e local porque é como
@@ -52,8 +54,50 @@ def listar_vitrine(
     if genero is not None:
         stmt = stmt.where(Event.genre == genero)
 
+    return stmt
+
+
+def contar_vitrine(
+    db: Session,
+    *,
+    busca: str | None = None,
+    layout: EventLayout | None = None,
+    genero: Genre | None = None,
+) -> int:
+    """Total que atende aos filtros, ignorando a página.
+
+    É o que permite ao front saber quantas páginas existem. Sem isso ele só
+    descobriria o fim ao receber uma página vazia.
+    """
+    stmt = _aplicar_filtros(
+        select(func.count()).select_from(Event).where(
+            Event.status == EventStatus.PUBLISHED, Event.starts_at > _agora()
+        ),
+        busca=busca,
+        layout=layout,
+        genero=genero,
+    )
+    return db.scalar(stmt) or 0
+
+
+def listar_vitrine(
+    db: Session,
+    *,
+    busca: str | None = None,
+    layout: EventLayout | None = None,
+    genero: Genre | None = None,
+    limit: int = 24,
+    offset: int = 0,
+) -> list[Event]:
+    stmt = _aplicar_filtros(
+        _base_vitrine(), busca=busca, layout=layout, genero=genero
+    )
+
     # Mais próximos primeiro: quem abre a vitrine quer o que dá para assistir já.
-    stmt = stmt.order_by(Event.starts_at.asc()).limit(limit).offset(offset)
+    # `id` como segundo critério porque duas sessões podem começar no mesmo
+    # instante — sem ele a ordem entre elas é indefinida e um evento poderia
+    # aparecer em duas páginas, ou em nenhuma.
+    stmt = stmt.order_by(Event.starts_at.asc(), Event.id.asc()).limit(limit).offset(offset)
 
     return list(db.scalars(stmt).all())
 

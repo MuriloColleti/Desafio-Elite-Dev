@@ -56,6 +56,11 @@ function naGrade(titulo: string): HTMLElement | null {
   )
 }
 
+/** A API devolve um envelope paginado; o mock precisa refletir isso. */
+function pagina(itens: Evento[]) {
+  return { items: itens, total: itens.length, limit: 12, offset: 0 }
+}
+
 function montar(rota = '/') {
   return render(
     <MemoryRouter initialEntries={[rota]}>
@@ -68,9 +73,25 @@ function montar(rota = '/') {
   )
 }
 
+/** Mock que filtra como o servidor: por layout e por gênero da query.
+ *  Devolver a lista inteira independentemente dos filtros faria os testes de
+ *  aba passarem por acidente. */
+function mockApi(todos: Evento[]) {
+  return vi.spyOn(api, 'get').mockImplementation(async (caminho: string) => {
+    const qs = new URLSearchParams(caminho.split('?')[1] ?? '')
+    const layout = qs.get('layout')
+    const genero = qs.get('genre')
+
+    const itens = todos.filter(
+      (e) => (!layout || e.layout === layout) && (!genero || e.genre === genero),
+    )
+    return pagina(itens) as never
+  })
+}
+
 describe('Vitrine', () => {
   beforeEach(() => {
-    vi.spyOn(api, 'get').mockResolvedValue([...FILMES, ...SHOWS])
+    mockApi([...FILMES, ...SHOWS])
   })
 
   it('abre na aba de cinema', async () => {
@@ -118,7 +139,7 @@ describe('Vitrine', () => {
   it('oferece a outra aba quando a atual está vazia', async () => {
     // Só shows cadastrados: quem cai em cinema precisa de uma saída, não de um
     // vazio sem ação.
-    vi.spyOn(api, 'get').mockResolvedValue(SHOWS)
+    mockApi(SHOWS)
     montar('/')
 
     await waitFor(() =>
@@ -129,7 +150,7 @@ describe('Vitrine', () => {
   it('repassa ao servidor o termo que vem da URL', async () => {
     // A busca mora no cabeçalho e chega por `?q=`. É o back-end que sabe filtrar
     // por título E local; refazer isso no cliente divergiria da vitrine.
-    const buscar = vi.spyOn(api, 'get').mockResolvedValue(FILMES)
+    const buscar = mockApi(FILMES)
     montar('/?q=parasita')
 
     await waitFor(() => expect(buscar).toHaveBeenCalledWith(expect.stringContaining('q=parasita')))
@@ -153,7 +174,7 @@ describe('Vitrine', () => {
   })
 
   it('repassa o gênero da URL ao servidor', async () => {
-    const buscar = vi.spyOn(api, 'get').mockResolvedValue(FILMES)
+    const buscar = mockApi(FILMES)
     montar('/?g=TERROR')
 
     await waitFor(() =>
@@ -177,14 +198,14 @@ describe('Vitrine', () => {
   })
 
   it('avisa quando a busca não acha nada', async () => {
-    vi.spyOn(api, 'get').mockResolvedValue([])
+    mockApi([])
     montar('/?q=xyz')
 
     await waitFor(() => expect(screen.getByText(/Nada encontrado/)).toBeInTheDocument())
   })
 
   it('mostra o termo ativo como pílula removível', async () => {
-    vi.spyOn(api, 'get').mockResolvedValue(FILMES)
+    mockApi(FILMES)
     montar('/?q=parasita')
 
     await waitFor(() =>
@@ -194,7 +215,7 @@ describe('Vitrine', () => {
 
   it('preserva o termo ao trocar de aba', async () => {
     // Quem buscou "rock" em cinema quer ver "rock" em shows, não a lista toda.
-    vi.spyOn(api, 'get').mockResolvedValue([...FILMES, ...SHOWS])
+    mockApi([...FILMES, ...SHOWS])
     montar('/?q=rock')
 
     await waitFor(() => expect(screen.getByRole('tab', { name: /Shows/ })).toBeInTheDocument())

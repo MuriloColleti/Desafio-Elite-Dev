@@ -55,6 +55,15 @@ export type Evento = {
   available: number
 }
 
+/** Resposta paginada da vitrine. O `total` é o que permite desenhar a barra
+ *  de páginas — sem ele o front só descobriria o fim ao receber lista vazia. */
+export type PaginaEventos = {
+  items: Evento[]
+  total: number
+  limit: number
+  offset: number
+}
+
 export type MapaAssentos = {
   rows: number
   seats_per_row: number

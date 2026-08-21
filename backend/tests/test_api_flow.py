@@ -16,6 +16,15 @@ def _futuro(dias: int = 30) -> str:
     return (datetime.now(UTC) + timedelta(days=dias)).isoformat()
 
 
+def _itens(resposta) -> list[dict]:
+    """Itens da vitrine paginada.
+
+    A rota devolve `{items, total, limit, offset}`: o total é o que permite ao
+    front desenhar a barra de páginas.
+    """
+    return resposta.json()["items"]
+
+
 # --- Vitrine (pública) ---
 
 
@@ -28,33 +37,34 @@ def test_vitrine_dispensa_autenticacao(app_semeado):
     # Quantidade não é afirmada: o seed cresce, e um teste que trava o número
     # vira manutenção sem valor. O que importa é a vitrine responder com
     # eventos a quem não fez login.
-    assert len(r.json()) > 0
+    assert len(_itens(r)) > 0
+    assert r.json()["total"] >= len(_itens(r))
 
 
 def test_vitrine_traz_data_local_e_preco(app_semeado):
     """Exigência literal do enunciado."""
     clientes, _ = app_semeado
-    evento = clientes["anon"].get("/events").json()[0]
+    evento = _itens(clientes["anon"].get("/events"))[0]
 
     assert evento["starts_at"] and evento["venue"] and evento["price_cents"]
 
 
 def test_vitrine_omite_rascunho_e_cancelado(app_semeado):
     clientes, _ = app_semeado
-    assert all(e["status"] == "PUBLISHED" for e in clientes["anon"].get("/events").json())
+    assert all(e["status"] == "PUBLISHED" for e in _itens(clientes["anon"].get("/events")))
 
 
 def test_vitrine_ordena_por_data_crescente(app_semeado):
     """Quem abre a vitrine quer o que dá para assistir logo."""
     clientes, _ = app_semeado
-    datas = [e["starts_at"] for e in clientes["anon"].get("/events").json()]
+    datas = [e["starts_at"] for e in _itens(clientes["anon"].get("/events"))]
     assert datas == sorted(datas)
 
 
 def test_vitrine_desconta_lugares_ocupados(app_semeado):
     clientes, _ = app_semeado
     cinema = next(
-        e for e in clientes["anon"].get("/events").json() if e["layout"] == "SEATED"
+        e for e in _itens(clientes["anon"].get("/events?limit=120")) if e["layout"] == "SEATED"
     )
     assert cinema["available"] == cinema["capacity"] - 10
 
@@ -62,18 +72,18 @@ def test_vitrine_desconta_lugares_ocupados(app_semeado):
 @pytest.mark.parametrize("termo", ["parasita", "PARASITA", "parasi"])
 def test_busca_por_titulo(app_semeado, termo):
     clientes, _ = app_semeado
-    assert len(clientes["anon"].get(f"/events?q={termo}").json()) == 1
+    assert len(_itens(clientes["anon"].get(f"/events?q={termo}&limit=120"))) >= 1
 
 
 def test_busca_por_local(app_semeado):
     """As pessoas procuram tanto pelo filme quanto pela casa de show."""
     clientes, _ = app_semeado
-    assert len(clientes["anon"].get("/events?q=Circo").json()) == 1
+    assert len(_itens(clientes["anon"].get("/events?q=Circo&limit=120"))) >= 1
 
 
 def test_filtro_por_layout(app_semeado):
     clientes, _ = app_semeado
-    r = clientes["anon"].get("/events?layout=GENERAL").json()
+    r = _itens(clientes["anon"].get("/events?layout=GENERAL&limit=120"))
 
     assert r, "o seed deveria ter evento de pista"
     assert all(e["layout"] == "GENERAL" for e in r)
@@ -362,7 +372,7 @@ def test_evento_publicado_aparece_na_vitrine(app_semeado):
         },
     ).json()
 
-    ids = [e["id"] for e in clientes["anon"].get("/events").json()]
+    ids = [e["id"] for e in _itens(clientes["anon"].get("/events?limit=120"))]
     assert novo["id"] in ids
 
 
@@ -381,7 +391,7 @@ def test_sem_publish_fica_rascunho_fora_da_vitrine(app_semeado):
     ).json()
 
     assert novo["status"] == "DRAFT"
-    assert novo["id"] not in [e["id"] for e in clientes["anon"].get("/events").json()]
+    assert novo["id"] not in [e["id"] for e in _itens(clientes["anon"].get("/events?limit=120"))]
 
 
 @pytest.mark.parametrize(
@@ -471,7 +481,7 @@ def test_cancelar_remove_da_vitrine(app_semeado):
     r = clientes["organizador"].delete(f"/organizer/events/{refs['evento_show']}")
 
     assert r.status_code == 200 and r.json()["status"] == "CANCELLED"
-    ids = [e["id"] for e in clientes["anon"].get("/events").json()]
+    ids = [e["id"] for e in _itens(clientes["anon"].get("/events?limit=120"))]
     assert refs["evento_show"] not in ids
 
 
@@ -499,7 +509,7 @@ def test_cancelar_e_idempotente(app_semeado):
 def test_filtra_a_vitrine_por_genero(app_semeado):
     clientes, _ = app_semeado
 
-    r = clientes["anon"].get("/events?genre=TERROR&limit=120").json()
+    r = _itens(clientes["anon"].get("/events?genre=TERROR&limit=120"))
 
     assert r, "o seed deveria ter filme de terror"
     assert all(e["genre"] == "TERROR" for e in r)
@@ -514,7 +524,7 @@ def test_genero_inexistente_e_rejeitado(app_semeado):
 def test_genero_de_show_nao_traz_filme(app_semeado):
     clientes, _ = app_semeado
 
-    r = clientes["anon"].get("/events?genre=SAMBA&limit=120").json()
+    r = _itens(clientes["anon"].get("/events?genre=SAMBA&limit=120"))
 
     assert all(e["layout"] == "GENERAL" for e in r)
 
@@ -579,3 +589,64 @@ def test_evento_sem_catalogo_pode_nao_ter_genero(app_semeado):
 
     assert r.status_code == 201
     assert r.json()["genre"] is None
+
+
+# --- Paginação ---
+
+
+def test_vitrine_devolve_total_e_limite(app_semeado):
+    """O total é o que permite ao front saber quantas páginas existem."""
+    clientes, _ = app_semeado
+
+    corpo = clientes["anon"].get("/events?limit=5").json()
+
+    assert corpo["limit"] == 5
+    assert corpo["offset"] == 0
+    assert len(corpo["items"]) <= 5
+    assert corpo["total"] >= len(corpo["items"])
+
+
+def test_paginas_nao_repetem_evento(app_semeado):
+    """Sem ordem estável, um evento apareceria em duas páginas ou em nenhuma.
+
+    Duas sessões podem começar no mesmo instante; o `id` como segundo critério
+    de ordenação é o que torna a divisão determinística.
+    """
+    clientes, _ = app_semeado
+
+    p1 = clientes["anon"].get("/events?limit=6&offset=0").json()["items"]
+    p2 = clientes["anon"].get("/events?limit=6&offset=6").json()["items"]
+
+    assert {e["id"] for e in p1}.isdisjoint({e["id"] for e in p2})
+
+
+def test_total_reflete_os_filtros(app_semeado):
+    """Se o total ignorasse o filtro, a barra ofereceria páginas vazias."""
+    clientes, _ = app_semeado
+
+    tudo = clientes["anon"].get("/events?limit=1").json()["total"]
+    terror = clientes["anon"].get("/events?genre=TERROR&limit=1").json()["total"]
+
+    assert 0 < terror < tudo
+
+
+def test_offset_alem_do_fim_devolve_lista_vazia(app_semeado):
+    """Página inexistente é lista vazia com total preservado, não erro."""
+    clientes, _ = app_semeado
+
+    corpo = clientes["anon"].get("/events?offset=9999").json()
+
+    assert corpo["items"] == []
+    assert corpo["total"] > 0
+
+
+def test_paginacao_percorre_todos_sem_perder_nenhum(app_semeado):
+    clientes, _ = app_semeado
+    total = clientes["anon"].get("/events?limit=1").json()["total"]
+
+    vistos: set[str] = set()
+    for offset in range(0, total, 10):
+        pagina = clientes["anon"].get(f"/events?limit=10&offset={offset}").json()
+        vistos.update(e["id"] for e in pagina["items"])
+
+    assert len(vistos) == total

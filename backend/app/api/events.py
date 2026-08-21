@@ -48,6 +48,20 @@ class EventOut(BaseModel):
         )
 
 
+class PaginaEventos(BaseModel):
+    """Resposta paginada da vitrine.
+
+    O `total` é o que permite ao front desenhar a barra de páginas. Sem ele a
+    interface só descobriria o fim ao receber uma página vazia — e não teria
+    como oferecer "ir para a última".
+    """
+
+    items: list[EventOut]
+    total: int
+    limit: int
+    offset: int
+
+
 class SeatMapOut(BaseModel):
     """Mapa de assentos para o front renderizar.
 
@@ -96,19 +110,26 @@ class EventUpdate(BaseModel):
 # --- Vitrine (pública, sem autenticação) ---
 
 
-@router.get("/events", response_model=list[EventOut])
+@router.get("/events", response_model=PaginaEventos)
 def listar(
     db: DbSession,
     q: str | None = Query(None, max_length=120, description="Busca por título ou local"),
     layout: EventLayout | None = Query(None),
     genre: Genre | None = Query(None, description="Filtra por gênero"),
-    limit: int = Query(60, ge=1, le=120),
+    limit: int = Query(12, ge=1, le=120),
     offset: int = Query(0, ge=0),
-) -> list[EventOut]:
-    achados = events.listar_vitrine(
-        db, busca=q, layout=layout, genero=genre, limit=limit, offset=offset
+) -> PaginaEventos:
+    filtros = {"busca": q, "layout": layout, "genero": genre}
+
+    achados = events.listar_vitrine(db, **filtros, limit=limit, offset=offset)
+    total = events.contar_vitrine(db, **filtros)
+
+    return PaginaEventos(
+        items=[EventOut.de(e, reservations.disponiveis(db, e)) for e in achados],
+        total=total,
+        limit=limit,
+        offset=offset,
     )
-    return [EventOut.de(e, reservations.disponiveis(db, e)) for e in achados]
 
 
 @router.get("/events/{event_id}", response_model=EventDetailOut)

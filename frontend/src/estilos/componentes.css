@@ -1622,3 +1622,59 @@
   color: var(--texto-3);
   font-weight: 600;
 }
+
+/* ---------- Paginação ---------- */
+
+.paginacao {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+}
+
+.pg-num,
+.pg-seta {
+  min-width: 38px;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--borda);
+  border-radius: var(--r-sm);
+  background: var(--superficie);
+  color: var(--texto-2);
+  font-size: 0.9rem;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+  transition: border-color 0.14s, background-color 0.14s, color 0.14s;
+}
+
+.pg-num:hover:not(.ativo),
+.pg-seta:hover:not(:disabled) {
+  border-color: var(--marca);
+  color: var(--marca);
+  background: var(--marca-clara);
+}
+
+.pg-num.ativo {
+  background: var(--marca);
+  border-color: var(--marca);
+  color: #fff;
+}
+
+.pg-seta {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.pg-seta:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.pg-elipse {
+  padding: 0 2px;
+  color: var(--texto-3);
+  user-select: none;
+}
