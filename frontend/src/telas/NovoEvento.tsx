@@ -40,6 +40,7 @@ export function NovoEvento() {
   const [publicar, setPublicar] = useState(true)
 
   const [erro, setErro] = useState<string | null>(null)
+  const [erroBusca, setErroBusca] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
 
   useEffect(() => {
@@ -50,8 +51,18 @@ export function NovoEvento() {
         .then((r) => {
           setItens(r.items)
           setOffline(r.offline)
+          setErroBusca(null)
         })
-        .catch(() => setItens([]))
+        .catch((e) => {
+          setItens([])
+          // Engolir o erro deixava a lista vazia sem explicação: sessão
+          // expirada, API fora e "nada encontrado" ficavam idênticos na tela.
+          setErroBusca(
+            e instanceof ApiError
+              ? mensagemDeErro(e.code, e.message)
+              : 'Não foi possível buscar no catálogo.',
+          )
+        })
         .finally(() => setBuscando(false))
     }, 300)
 
@@ -164,6 +175,8 @@ export function NovoEvento() {
 
             {buscando && <p className="texto-pp texto-3">Buscando…</p>}
 
+            {erroBusca && <div className="aviso aviso-erro">{erroBusca}</div>}
+
             <ul className="catalogo-lista">
               {itens.map((i) => (
                 <li key={i.ref}>
@@ -185,8 +198,12 @@ export function NovoEvento() {
               ))}
             </ul>
 
-            {!buscando && itens.length === 0 && termo && (
-              <p className="texto-p texto-3">Nada encontrado para “{termo}”.</p>
+            {!buscando && !erroBusca && itens.length === 0 && (
+              <p className="texto-p texto-3">
+                {termo
+                  ? `Nada encontrado para “${termo}”.`
+                  : 'Nenhum filme em cartaz no momento.'}
+              </p>
             )}
           </>
         )}
