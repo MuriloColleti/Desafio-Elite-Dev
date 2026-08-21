@@ -31,6 +31,8 @@ export type Usuario = {
 
 export type Evento = {
   id: string
+  /** Referência ao item do catálogo (`tmdb:movie:550`), quando veio de lá. */
+  catalog_ref: string | null
   title: string
   synopsis: string | null
   poster_url: string | null

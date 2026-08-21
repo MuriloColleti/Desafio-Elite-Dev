@@ -20,6 +20,7 @@ import { Vitrine } from './Vitrine'
 function evento(over: Partial<Evento> = {}): Evento {
   return {
     id: crypto.randomUUID(),
+    catalog_ref: null,
     title: 'Filme',
     synopsis: null,
     poster_url: null,

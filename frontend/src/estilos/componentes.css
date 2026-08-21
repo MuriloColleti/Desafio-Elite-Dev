@@ -1731,3 +1731,138 @@
   padding: 14px 10px;
   text-align: center;
 }
+
+/* ---------- Em cartaz ---------- */
+
+.cartazes {
+  padding: 26px 0 22px;
+  background: var(--superficie);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sombra-2);
+  /* Sem padding lateral: a faixa sangra até a borda do bloco, o que sinaliza
+     que há mais coisa rolando para o lado. */
+  overflow: hidden;
+}
+
+.cartazes-cabeca {
+  padding: 0 28px;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 560px) {
+  .cartazes-cabeca {
+    padding: 0 16px;
+  }
+}
+
+.cartazes-faixa {
+  display: flex;
+  gap: 16px;
+  list-style: none;
+  margin: 0;
+  padding: 4px 28px 12px;
+  overflow-x: auto;
+  scroll-snap-type: x proximate;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 560px) {
+  .cartazes-faixa {
+    padding: 4px 16px 12px;
+  }
+}
+
+.cartazes-faixa::-webkit-scrollbar {
+  height: 6px;
+}
+.cartazes-faixa::-webkit-scrollbar-thumb {
+  background: var(--borda-2);
+  border-radius: 999px;
+}
+
+.cartaz {
+  flex: 0 0 138px;
+  scroll-snap-align: start;
+}
+
+.cartaz-arte {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: var(--borda);
+  box-shadow: var(--sombra-1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cartaz a:hover .cartaz-arte {
+  transform: translateY(-4px);
+  box-shadow: var(--sombra-2);
+}
+
+.cartaz-arte img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cartaz-arte-vazia {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 1.6rem;
+  background: linear-gradient(150deg, #33283f, #6b3138);
+}
+
+/* Sem sessão: dessaturado e translúcido. O filme continua visível — é
+   informação —, mas fica claro que não há o que comprar. */
+.cartaz.inativo .cartaz-arte {
+  filter: saturate(0.35);
+  opacity: 0.62;
+}
+
+.cartaz-selo {
+  position: absolute;
+  bottom: 7px;
+  left: 7px;
+  right: 7px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-align: center;
+  backdrop-filter: blur(6px);
+}
+
+.cartaz-selo.tem-sessao {
+  background: rgba(216, 52, 42, 0.94);
+  color: #fff;
+}
+
+.cartaz-selo.sem-sessao {
+  background: rgba(22, 24, 29, 0.72);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.cartaz-titulo {
+  margin-top: 9px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.3;
+  /* Duas linhas no máximo: títulos longos desalinhariam a faixa inteira. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cartaz a:hover .cartaz-titulo {
+  color: var(--marca);
+}
+
+.cartaz-genero {
+  margin-top: 2px;
+}

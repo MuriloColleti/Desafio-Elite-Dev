@@ -18,6 +18,9 @@ router = APIRouter(tags=["events"])
 
 class EventOut(BaseModel):
     id: str
+    # Exposto para o front ligar uma sessão ao item do catálogo — é o que
+    # permite à seção "em cartaz" saber quais filmes já têm ingresso.
+    catalog_ref: str | None
     title: str
     synopsis: str | None
     poster_url: str | None
@@ -37,6 +40,7 @@ class EventOut(BaseModel):
     def de(cls, e: Event, available: int) -> "EventOut":
         return cls(
             id=e.id,
+            catalog_ref=e.catalog_ref,
             title=e.title,
             synopsis=e.synopsis,
             poster_url=e.poster_url,

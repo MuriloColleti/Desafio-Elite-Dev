@@ -16,12 +16,13 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 
 import { CardEvento } from '../componentes/CardEvento'
 import { Destaques } from '../componentes/Destaques'
+import { EmCartaz } from '../componentes/EmCartaz'
 import { Paginacao } from '../componentes/Paginacao'
 import { Recomendados } from '../componentes/Recomendados'
 import { ApiError, api } from '../lib/api'
 import { mensagemDeErro } from '../lib/formato'
 import { generosDisponiveis, rotuloGenero } from '../lib/generos'
-import type { Evento, Genero, PaginaEventos } from '../lib/tipos'
+import type { BuscaCatalogo, Evento, Genero, ItemCatalogo, PaginaEventos } from '../lib/tipos'
 
 const POR_PAGINA = 12
 
@@ -41,8 +42,19 @@ export function Vitrine() {
   // recomendados. Sem ela, filtrar por Terror faria as outras pílulas
   // desaparecerem — e não haveria como voltar.
   const [panorama, setPanorama] = useState<Evento[]>([])
+  // Filmes em cartaz segundo o TMDb — contexto, não catálogo de venda.
+  const [emCartaz, setEmCartaz] = useState<ItemCatalogo[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Rota pública e sem filtro: é o que está passando nos cinemas, não o que a
+    // plataforma vende. Falha aqui só omite a seção — não é dado essencial.
+    api
+      .get<BuscaCatalogo>('/catalog/now-playing?limit=20')
+      .then((r) => setEmCartaz(r.items))
+      .catch(() => setEmCartaz([]))
+  }, [])
 
   useEffect(() => {
     const qs = new URLSearchParams({ limit: '120' })
@@ -131,6 +143,9 @@ export function Vitrine() {
       {destaques.length > 0 && (
         <>
           <Destaques eventos={destaques} />
+          {/* Entre o carrossel e os recomendados: sai do que a plataforma vende
+              para o que está passando, e volta para o que está vendendo bem. */}
+          <EmCartaz itens={emCartaz} sessoes={panorama} />
           <Recomendados eventos={panorama} />
         </>
       )}

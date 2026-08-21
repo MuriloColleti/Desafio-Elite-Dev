@@ -768,3 +768,50 @@ def test_evento_sem_cidade_informada_fica_sem_localizacao(app_semeado):
 
     assert r.status_code == 201
     assert r.json()["city"] is None
+
+
+# --- Em cartaz (rota pública do catálogo) ---
+
+
+def test_em_cartaz_dispensa_autenticacao(app_semeado):
+    """É vitrine, não ferramenta do organizador.
+
+    Quem chega no site vê o que está passando sem precisar de conta — ao
+    contrário de `/catalog/search`, que é do fluxo de criação.
+    """
+    clientes, _ = app_semeado
+
+    r = clientes["anon"].get("/catalog/now-playing?limit=5")
+
+    assert r.status_code == 200
+    assert "items" in r.json()
+
+
+def test_em_cartaz_respeita_o_limite(app_semeado):
+    clientes, _ = app_semeado
+
+    corpo = clientes["anon"].get("/catalog/now-playing?limit=3").json()
+
+    assert len(corpo["items"]) <= 3
+
+
+def test_em_cartaz_rejeita_limite_absurdo(app_semeado):
+    clientes, _ = app_semeado
+    assert clientes["anon"].get("/catalog/now-playing?limit=999").status_code == 422
+
+
+def test_vitrine_expoe_catalog_ref(app_semeado):
+    """É o que liga uma sessão ao filme do catálogo.
+
+    Sem ele a seção "em cartaz" não saberia quais filmes já têm ingresso — e
+    casar por título falharia, porque o título do evento é um snapshot editável.
+    """
+    clientes, _ = app_semeado
+
+    eventos = _itens(clientes["anon"].get("/events?limit=5"))
+
+    assert eventos
+    assert any(e["catalog_ref"] for e in eventos)
+    assert all(
+        e["catalog_ref"] is None or e["catalog_ref"].startswith("tmdb:") for e in eventos
+    )

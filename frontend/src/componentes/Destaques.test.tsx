@@ -18,6 +18,7 @@ import { Destaques } from './Destaques'
 function evento(titulo: string): Evento {
   return {
     id: `id-${titulo}`,
+    catalog_ref: null,
     title: titulo,
     synopsis: null,
     poster_url: `https://img/${titulo}.jpg`,

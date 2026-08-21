@@ -10,8 +10,8 @@ simulada e recebe um ingresso com QR, e a portaria valida esse ingresso na entra
 >
 > **Status:** o fluxo do enunciado funciona **ponta a ponta** — vitrine, criação de evento a partir
 > do catálogo, reserva com mapa de assentos ou pista, pagamento simulado com recusa, ingresso com
-> QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 224 testes;
-> front-end com 72. O que falta está em [Status de implementação](#status-de-implementação) —
+> QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 228 testes;
+> front-end com 81. O que falta está em [Status de implementação](#status-de-implementação) —
 > principalmente cobertura de testes do front e o deploy.
 
 ---
@@ -135,6 +135,17 @@ aparecem os gêneros **que têm evento** — oferecer um filtro que devolve list
 não escolha. E o gênero vive na URL junto da aba, então o link de *Cinema + Terror* é
 compartilhável e o botão voltar desfaz um filtro por vez. Ao trocar de aba, um gênero que não
 existe do outro lado (*Terror* em Shows) simplesmente cai.
+
+**Três seções na home, e cada uma responde a uma pergunta diferente.** O carrossel mostra
+*sessões em destaque* (o que a plataforma vende), **Em cartaz** mostra *o que está passando nos
+cinemas* direto do TMDb, e **Mais procurados** mostra *o que está vendendo bem*. Repetir o mesmo
+recorte três vezes não acrescentaria nada.
+
+A seção **Em cartaz** é a única que não vem do nosso banco — é contexto, não catálogo de venda.
+Os filmes que já têm sessão levam à compra; os que não têm ficam visíveis, dessaturados, com a
+marca *sem sessão*. É informação honesta (o filme está passando, só não aqui) e, para o
+organizador, uma dica do que falta publicar. O casamento é pelo `catalog_ref`, não pelo título:
+o título do evento é um snapshot editável, e casar por texto quebraria na primeira edição.
 
 **Recomendados em formato diferente do carrossel.** Abaixo dos destaques, uma lista numerada e
 compacta — miniatura, posição e o motivo da recomendação. Repetir o mesmo card duas vezes na
@@ -609,6 +620,7 @@ POST   /auth/login                    → abre sessão (cookie httponly + sessio
 POST   /auth/logout                   → encerra a sessão no servidor
 GET    /auth/me                       → usuário atual
 
+GET    /catalog/now-playing            → filmes em cartaz hoje, do TMDb (público)
 GET    /catalog/search?q=              → busca no TMDb (em cartaz se q vazio)  [ORGANIZER]
 
 GET    /events?q=&layout=&genre=&city=&state=&limit=&offset=
@@ -814,8 +826,8 @@ de que já esteja pronto.
 | Front-end: vitrine, reserva, checkout, ingressos | ✅ pronto      |
 | Front-end: portaria e painel do organizador    | ✅ pronto       |
 | Leitura do QR pela câmera                      | ✅ pronto       |
-| Testes do back-end (224)                       | ✅ pronto       |
-| Testes do front-end (72)                       | 🟡 parcial      |
+| Testes do back-end (228)                       | ✅ pronto       |
+| Testes do front-end (81)                       | 🟡 parcial      |
 | Docker Compose (um comando)                    | ✅ pronto       |
 | Configuração de deploy (Render + Vercel)       | ✅ pronto       |
 | Deploy público publicado                       | 🔜 pendente     |

@@ -56,6 +56,24 @@ class SearchResponse(BaseModel):
     offline: bool
 
 
+@router.get("/now-playing", response_model=SearchResponse)
+async def em_cartaz(limit: int = Query(12, ge=1, le=40)) -> SearchResponse:
+    """Filmes em cartaz hoje, direto do TMDb.
+
+    **Pública**, ao contrário de `/search`: é vitrine, não ferramenta do
+    organizador. Quem chega no site vê o que está passando nos cinemas mesmo
+    sem ter sessão criada na plataforma — e sem precisar de conta.
+
+    Não são eventos: não têm sala, horário nem preço, então não são compráveis.
+    A tela deixa isso claro, e os que já viraram sessão levam à compra.
+    """
+    itens = await catalog.search("", limit=limit)
+    return SearchResponse(
+        items=[CatalogItemOut.de(i) for i in itens],
+        offline=settings.catalog_offline,
+    )
+
+
 @router.get("/search", response_model=SearchResponse)
 async def search(
     _: RequireOrganizer,

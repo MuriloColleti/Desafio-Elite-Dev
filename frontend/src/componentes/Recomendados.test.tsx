@@ -16,6 +16,7 @@ import { Recomendados } from './Recomendados'
 function evento(titulo: string, capacidade: number, disponivel: number, dias = 5): Evento {
   return {
     id: `id-${titulo}`,
+    catalog_ref: null,
     title: titulo,
     synopsis: null,
     poster_url: `https://img/${titulo}.jpg`,
