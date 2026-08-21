@@ -6,8 +6,8 @@ forma simulada e recebe um ingresso com QR, e a **portaria** valida esse ingress
 
 > **Status:** o fluxo do enunciado funciona **ponta a ponta** — vitrine, criação de evento a partir
 > do catálogo, reserva com mapa de assentos ou pista, pagamento simulado com recusa, ingresso com
-> QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 215 testes;
-> front-end com 51. O que falta está em [Status de implementação](#status-de-implementação) —
+> QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 228 testes;
+> front-end com 64. O que falta está em [Status de implementação](#status-de-implementação) —
 > principalmente cobertura de testes do front e o deploy.
 
 ---
@@ -100,12 +100,24 @@ ferramenta — e por um motivo concreto, não por contrariar:
 - **A tela da portaria é feita para ser lida de relance**, de pé, com fila esperando: o resultado
   ocupa a tela com ícone e cor, e não é uma mensagem discreta ao lado do formulário.
 
-**A entrada é uma parede de cartazes.** A vitrine abre com um carrossel de 8 pôsteres num bloco
-claro elevado — a separação vem da sombra, não da cor: uma faixa escura no topo pesava a tela e
-competia com os próprios cartazes. Mostra 4 por vez e desliza um a cada 4 segundos. **Pausa ao passar o mouse ou focar por
+**A entrada é uma vitrine de bilheteria.** A tela abre com um cartaz grande no centro e os
+vizinhos menores, cortados nas laterais. A perspectiva leva o olho ao centro, e o corte nas
+bordas comunica que há mais coisa sem precisar de texto explicando. Avança um a cada 5 segundos,
+com a legenda (título, cidade, data) abaixo do cartaz em destaque. Só o central é clicável e
+alcançável por teclado — tabular até um vizinho cortado levaria a um destino que a pessoa não vê. **Pausa ao passar o mouse ou focar por
 teclado** — animação que rouba o cartaz debaixo do cursor de quem ia clicar é pior que animação
 nenhuma — e respeita `prefers-reduced-motion`. Some quando há busca ativa: quem procura algo
 específico não quer uma parede de cartazes na frente do resultado.
+
+**Busca no centro da barra, com o local ao lado.** Buscar é a ação principal de quem chega, e o
+centro é onde o olho encontra primeiro numa barra larga. O seletor de local lista apenas cidades
+**com evento publicado**, agrupadas por estado e com a contagem ao lado (*São Paulo 18*) —
+oferecer um lugar sem nada para comprar é armadilha, e o número ajuda a escolher. Também dá para
+filtrar o estado inteiro, porque quem mora em cidade vizinha costuma aceitar ir à capital.
+
+**Localização em colunas próprias, não extraída do texto do `venue`.** Separar
+"Circo Voador, Rio de Janeiro" por vírgula funcionaria nos dados que nós escrevemos e quebraria
+em qualquer venue digitado de outro jeito. Filtro que erra em silêncio é pior que filtro nenhum.
 
 **Gênero como pílulas, não como `<select>`.** Onze gêneros por aba num campo de seleção
 esconderiam as opções atrás de um clique; em pílulas roláveis a pessoa vê o que existe. Só
@@ -284,7 +296,8 @@ python -m app.seed --reset                # limpa e repopula
 ```
 User        id, name, email, password_hash, role(ORGANIZER|CUSTOMER|GATE)
 Event       id, organizer_id, catalog_ref, title, poster_url, synopsis,
-            venue, starts_at, layout(SEATED|GENERAL), capacity, price_cents,
+            venue, city, state, country, genre,
+            starts_at, layout(SEATED|GENERAL), capacity, price_cents,
             status(DRAFT|PUBLISHED|CANCELLED),
             seat_rows, seats_per_row                   -- só quando layout=SEATED
 Reservation id, event_id, customer_id, seat_label|null, quantity,
@@ -548,7 +561,9 @@ GET    /auth/me                       → usuário atual
 
 GET    /catalog/search?q=&source=     → busca em TMDb e/ou Ticketmaster  [ORGANIZER]
 
-GET    /events?q=&layout=&genre=      → vitrine: publicados e futuros, com busca e filtros
+GET    /events?q=&layout=&genre=&city=&state=&limit=&offset=
+                                      → vitrine paginada: {items, total, limit, offset}
+GET    /locations                     → cidades com evento publicado, e quantos em cada
 GET    /events/:id                    → detalhe + mapa de assentos com os ocupados
 
 GET    /organizer/events              → todos os meus eventos    [ORGANIZER]
@@ -748,8 +763,8 @@ de que já esteja pronto.
 | Front-end: vitrine, reserva, checkout, ingressos | ✅ pronto      |
 | Front-end: portaria e painel do organizador    | ✅ pronto       |
 | Leitura do QR pela câmera                      | ✅ pronto       |
-| Testes do back-end (215)                       | ✅ pronto       |
-| Testes do front-end (51)                       | 🟡 parcial      |
+| Testes do back-end (228)                       | ✅ pronto       |
+| Testes do front-end (64)                       | 🟡 parcial      |
 | Docker Compose (um comando)                    | ✅ pronto       |
 | Configuração de deploy (Render + Vercel)       | ✅ pronto       |
 | Deploy público publicado                       | 🔜 pendente     |

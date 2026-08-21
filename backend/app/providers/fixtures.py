@@ -32,14 +32,21 @@ def _filme(tmdb_id: int, titulo: str, poster: str, genero: Genre, sinopse: str) 
     )
 
 
-def _show(slug: str, titulo: str, genero: Genre, local: str, sinopse: str) -> CatalogItem:
+def _show(
+    slug: str, titulo: str, genero: Genre, casa: str, cidade: str, uf: str, sinopse: str
+) -> CatalogItem:
     return CatalogItem(
         ref=f"ticketmaster:event:{slug}",
         source=CatalogSource.TICKETMASTER,
         title=titulo,
         synopsis=sinopse,
         poster_url=None,
-        suggested_venue=local,
+        # O venue guarda só o nome da casa; cidade e estado vão em campos
+        # próprios. Concatenar tudo num texto seria jogar fora a informação que
+        # o filtro precisa.
+        suggested_venue=casa,
+        suggested_city=cidade,
+        suggested_state=uf,
         suggested_genre=genero,
     )
 
@@ -285,77 +292,77 @@ FILMES: tuple[CatalogItem, ...] = (
 SHOWS: tuple[CatalogItem, ...] = (
     _show(
         "demo-baile", "Baile do Terreiro — Edição Verão", Genre.SAMBA,
-        "Circo Voador, Rio de Janeiro",
+        "Circo Voador", "Rio de Janeiro", "RJ",
         "Samba de raiz e partido-alto até o amanhecer, com participações especiais.",
     ),
     _show(
         "demo-lampiao", "Orquestra Sanfônica — Lampião Elétrico", Genre.FORRO,
-        "Teatro Municipal, São Paulo",
+        "Teatro Municipal", "São Paulo", "SP",
         "Forró instrumental encontrando arranjos de orquestra, em turnê nacional.",
     ),
     _show(
         "demo-carranca", "Carranca — Turnê Ribeirinha", Genre.ROCK,
-        "Arena da Amazônia, Manaus",
+        "Arena da Amazônia", "Manaus", "AM",
         "Rock amazônico com instrumentos de percussão regional.",
     ),
     _show(
         "demo-vinil", "Noite do Vinil — Só Clássicos", Genre.ROCK,
-        "Audio Club, São Paulo",
+        "Audio Club", "São Paulo", "SP",
         "DJ set tocando apenas discos originais dos anos 70 e 80.",
     ),
     _show(
         "demo-cordel", "Cordel Encantado ao Vivo", Genre.MPB,
-        "Teatro José de Alencar, Fortaleza",
+        "Teatro José de Alencar", "Fortaleza", "CE",
         "Literatura de cordel musicada, com viola e narração cênica.",
     ),
     _show(
         "demo-maloca", "Maloca Sound System", Genre.REGGAE,
-        "Praça Mauá, Rio de Janeiro",
+        "Praça Mauá", "Rio de Janeiro", "RJ",
         "Reggae raiz e dub com sound system montado ao ar livre.",
     ),
     _show(
         "demo-quebrada", "Rima na Quebrada — Batalha Final", Genre.RAP,
-        "Cine Joia, São Paulo",
+        "Cine Joia", "São Paulo", "SP",
         "Batalha de rima com os melhores MCs do ano, júri aberto ao público.",
     ),
     _show(
         "demo-pulso", "PULSO — Noite Eletrônica", Genre.ELETRONICA,
-        "Warung Beach Club, Itajaí",
+        "Warung Beach Club", "Itajaí", "SC",
         "Techno melódico até o sol nascer, com line-up internacional.",
     ),
     _show(
         "demo-fluxo", "Fluxo da Zona Norte", Genre.FUNK,
-        "Espaço Unimed, São Paulo",
+        "Espaço Unimed", "São Paulo", "SP",
         "Funk 150 BPM com os DJs que definiram o som das quebradas.",
     ),
     _show(
         "demo-roda", "Roda de Pagode do Cacique", Genre.PAGODE,
-        "Clube Cacique, Rio de Janeiro",
+        "Clube Cacique", "Rio de Janeiro", "RJ",
         "Pagode de mesa, com repertório dos anos 90 e cerveja gelada.",
     ),
     _show(
         "demo-poeira", "Poeira & Viola — Modão Raiz", Genre.SERTANEJO,
-        "Parque do Peão, Barretos",
+        "Parque do Peão", "Barretos", "SP",
         "Sertanejo de raiz com dupla acompanhada de viola caipira.",
     ),
     _show(
         "demo-trio", "Trio Elétrico — Ensaio de Verão", Genre.AXE,
-        "Wet'n Wild, Salvador",
+        "Arena Fonte Nova", "Salvador", "BA",
         "Ensaio aberto de axé com trio elétrico e bloco convidado.",
     ),
     _show(
         "demo-brasilidade", "Brasilidade — Vozes do Nordeste", Genre.MPB,
-        "Theatro Municipal, Rio de Janeiro",
+        "Theatro Municipal", "Rio de Janeiro", "RJ",
         "MPB nordestina em formato voz e piano, repertório autoral.",
     ),
     _show(
         "demo-bass", "Subgrave — Bass Night", Genre.ELETRONICA,
-        "D-Edge, São Paulo",
+        "D-Edge", "São Paulo", "SP",
         "Drum and bass e jungle, com sistema de som calibrado para graves.",
     ),
     _show(
         "demo-cadencia", "Cadência — Samba de Mesa", Genre.SAMBA,
-        "Renascença Clube, Rio de Janeiro",
+        "Renascença Clube", "Rio de Janeiro", "RJ",
         "Samba tradicional em roda, sem palco, com o público em volta.",
     ),
 )

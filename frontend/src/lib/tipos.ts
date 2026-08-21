@@ -46,6 +46,9 @@ export type Evento = {
   synopsis: string | null
   poster_url: string | null
   venue: string
+  city: string | null
+  state: string | null
+  country: string | null
   starts_at: string
   layout: Layout
   genre: Genero | null
@@ -57,6 +60,15 @@ export type Evento = {
 
 /** Resposta paginada da vitrine. O `total` é o que permite desenhar a barra
  *  de páginas — sem ele o front só descobriria o fim ao receber lista vazia. */
+/** Cidade com evento publicado. O `total` evita oferecer no seletor um lugar
+ *  onde não há nada para comprar. */
+export type Localizacao = {
+  city: string
+  state: string | null
+  country: string | null
+  total: number
+}
+
 export type PaginaEventos = {
   items: Evento[]
   total: number
@@ -138,6 +150,8 @@ export type ItemCatalogo = {
   poster_url: string | null
   suggested_starts_at: string | null
   suggested_venue: string | null
+  suggested_city: string | null
+  suggested_state: string | null
   suggested_layout: Layout
   suggested_genre: Genero | null
 }

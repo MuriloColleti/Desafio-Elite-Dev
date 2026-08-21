@@ -1,18 +1,16 @@
 /**
- * Carrossel de destaques — a primeira coisa que se vê.
+ * Carrossel de destaques.
  *
- * A intenção é a sensação de chegar ao cinema: a parede de cartazes é o que
- * marca a entrada, antes de qualquer texto ou formulário. Por isso o bloco
- * ocupa a largura da tela, tem fundo escuro (o cartaz brilha sobre ele, como
- * numa sala de projeção) e os pôsteres deslizam sozinhos.
+ * Um cartaz grande no centro e os vizinhos menores, cortados nas laterais — o
+ * formato de vitrine de bilheteria. A perspectiva faz o olho ir direto ao
+ * centro, e os cortes nas bordas comunicam que há mais coisa sem precisar de
+ * texto explicando.
  *
  * Comportamento:
- * - Mostra 4 por vez e avança **um** a cada 4s, em laço infinito.
- * - Pausa ao passar o mouse ou focar por teclado: ninguém perde o cartaz que
- *   estava tentando clicar.
- * - Respeita `prefers-reduced-motion` — sem animação para quem pediu.
- * - Setas e indicadores para controle manual, porque animação automática sem
- *   controle é frustrante.
+ * - Avança um cartaz a cada 5s, em laço infinito.
+ * - Pausa no hover e no foco por teclado: ninguém perde o cartaz que ia clicar.
+ * - Respeita `prefers-reduced-motion`.
+ * - Setas sobre os vizinhos e indicadores abaixo, para controle manual.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -21,136 +19,150 @@ import { Link } from 'react-router-dom'
 import { moeda } from '../lib/formato'
 import type { Evento } from '../lib/tipos'
 
-const VISIVEIS = 4
-const INTERVALO_MS = 4000
+const INTERVALO_MS = 5000
 
-function dataCurta(iso: string): string {
-  return new Date(iso)
-    .toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
-    .replace('.', '')
+/** Quantos vizinhos de cada lado entram na cena. */
+const LADOS = 2
+
+function dataLonga(iso: string): string {
+  const d = new Date(iso)
+  return `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')} · ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
+}
+
+function local(e: Evento): string {
+  return e.city ? `${e.city}${e.state ? ` - ${e.state}` : ''}` : e.venue
 }
 
 export function Destaques({ eventos }: { eventos: Evento[] }) {
-  const [inicio, setInicio] = useState(0)
+  const [centro, setCentro] = useState(0)
   const [pausado, setPausado] = useState(false)
   const reduzido = useRef(false)
 
   useEffect(() => {
-    // `matchMedia` pode não existir (jsdom, navegador antigo). Sem ele o padrão
-    // é animar — quem pediu movimento reduzido tem também a regra CSS.
-    reduzido.current =
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+    reduzido.current = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
   }, [])
 
   const total = eventos.length
 
-  const avancar = useCallback(() => {
-    setInicio((i) => (i + 1) % total)
-  }, [total])
-
-  const voltar = useCallback(() => {
-    setInicio((i) => (i - 1 + total) % total)
-  }, [total])
+  const avancar = useCallback(() => setCentro((i) => (i + 1) % total), [total])
+  const voltar = useCallback(() => setCentro((i) => (i - 1 + total) % total), [total])
 
   useEffect(() => {
-    // Menos cartazes que o visível: não há o que rodar.
-    if (pausado || total <= VISIVEIS || reduzido.current) return
-
+    if (pausado || total <= 1 || reduzido.current) return
     const t = setInterval(avancar, INTERVALO_MS)
     return () => clearInterval(t)
   }, [pausado, total, avancar])
 
   if (total === 0) return null
 
-  // A janela dá a volta: com 8 cartazes e início em 6, mostra 6,7,0,1. É o que
-  // faz o laço parecer infinito sem duplicar a lista no DOM.
-  const janela = Array.from({ length: Math.min(VISIVEIS, total) }, (_, n) => {
-    const evento = eventos[(inicio + n) % total]
-    return { evento, chave: `${evento.id}-${n}` }
-  })
+  const emDestaque = eventos[centro]
 
-  const rodando = total > VISIVEIS
+  // Cada posição visível recebe um deslocamento relativo ao centro (-2..+2).
+  // A cena é montada por posição, e não pela lista, para o cartaz central estar
+  // sempre no meio independentemente de onde o índice esteja.
+  const cena = Array.from({ length: LADOS * 2 + 1 }, (_, n) => {
+    const desvio = n - LADOS
+    const evento = eventos[(centro + desvio + total * 2) % total]
+    return { evento, desvio }
+  })
 
   return (
     <section
-      className="destaques"
+      className="palco"
       aria-label="Em destaque"
       onMouseEnter={() => setPausado(true)}
       onMouseLeave={() => setPausado(false)}
       onFocusCapture={() => setPausado(true)}
       onBlurCapture={() => setPausado(false)}
     >
-      <div className="destaques-interno">
-        <div className="destaques-cabeca">
-          <div>
-            <span className="destaques-etiqueta">Em destaque</span>
-            <h2 className="destaques-titulo">Escolha sua próxima sessão</h2>
-          </div>
+      <div className="palco-cena">
+        {cena.map(({ evento, desvio }) => {
+          const central = desvio === 0
 
-          {rodando && (
-            <div className="destaques-setas">
-              <button type="button" onClick={voltar} aria-label="Cartazes anteriores">
-                ‹
-              </button>
-              <button type="button" onClick={avancar} aria-label="Próximos cartazes">
-                ›
-              </button>
-            </div>
-          )}
-        </div>
-
-        <ul className="destaques-trilha">
-          {janela.map(({ evento, chave }) => (
-            /* `key` inclui a posição: sem isso o React reaproveitaria o nó ao
-               deslizar e a transição de entrada não dispararia. */
-            <li key={chave} className="destaque-item">
-              <Link to={`/eventos/${evento.id}`} className="destaque">
-                <div className="destaque-arte">
+          return (
+            <div
+              key={`${evento.id}-${desvio}`}
+              className={central ? 'palco-carta central' : 'palco-carta'}
+              style={{ '--desvio': desvio } as React.CSSProperties}
+              // Só o cartaz central é alcançável: tabular pelos vizinhos
+              // cortados levaria a um link que a pessoa não vê por inteiro.
+              aria-hidden={!central}
+            >
+              {central ? (
+                <Link to={`/eventos/${evento.id}`} className="palco-arte">
                   {evento.poster_url ? (
-                    <img src={evento.poster_url} alt="" loading="lazy" />
+                    <img src={evento.poster_url} alt="" />
                   ) : (
-                    <div className="destaque-arte-vazia" aria-hidden="true">
+                    <div className="palco-arte-vazia">
                       <span>{evento.title}</span>
                     </div>
                   )}
-
-                  {/* Véu escuro na base: o texto precisa ser legível sobre
-                      qualquer cartaz, inclusive os claros. */}
-                  <div className="destaque-veu" />
-
-                  <div className="destaque-texto">
-                    <h3>{evento.title}</h3>
-                    <p className="destaque-meta">
-                      {dataCurta(evento.starts_at)} · {evento.venue}
-                    </p>
-                    <span className="destaque-preco">{moeda(evento.price_cents)}</span>
-                  </div>
-
-                  <span className="destaque-tipo">
-                    {evento.layout === 'SEATED' ? 'Lugar marcado' : 'Pista'}
-                  </span>
+                  <span className="palco-preco">{moeda(evento.price_cents)}</span>
+                </Link>
+              ) : (
+                <div className="palco-arte">
+                  {evento.poster_url ? (
+                    <img src={evento.poster_url} alt="" loading="lazy" />
+                  ) : (
+                    <div className="palco-arte-vazia">
+                      <span>{evento.title}</span>
+                    </div>
+                  )}
                 </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
+              )}
+            </div>
+          )
+        })}
 
-        {rodando && (
-          <div className="destaques-pontos" role="tablist" aria-label="Posição no carrossel">
-            {eventos.map((e, n) => (
-              <button
-                key={e.id}
-                type="button"
-                role="tab"
-                aria-selected={n === inicio}
-                aria-label={`Ir para ${e.title}`}
-                className={n === inicio ? 'ponto ativo' : 'ponto'}
-                onClick={() => setInicio(n)}
-              />
-            ))}
-          </div>
+        {total > 1 && (
+          <>
+            <button
+              type="button"
+              className="palco-seta esquerda"
+              onClick={voltar}
+              aria-label="Cartaz anterior"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              className="palco-seta direita"
+              onClick={avancar}
+              aria-label="Próximo cartaz"
+            >
+              ›
+            </button>
+          </>
         )}
       </div>
+
+      {/* Legenda embaixo do central, como na bilheteria: o cartaz chama, o
+          texto confirma o que é. `aria-live` porque muda sozinho. */}
+      <div className="palco-legenda" aria-live="polite">
+        <h2>
+          <Link to={`/eventos/${emDestaque.id}`}>{emDestaque.title}</Link>
+        </h2>
+        <p className="palco-meta">
+          <span>📍 {local(emDestaque)}</span>
+          <span>🗓 {dataLonga(emDestaque.starts_at)}</span>
+        </p>
+      </div>
+
+      {total > 1 && (
+        <div className="palco-pontos" role="tablist" aria-label="Posição no carrossel">
+          {eventos.map((e, n) => (
+            <button
+              key={e.id}
+              type="button"
+              role="tab"
+              aria-selected={n === centro}
+              aria-label={`Ver ${e.title}`}
+              className={n === centro ? 'ponto ativo' : 'ponto'}
+              onClick={() => setCentro(n)}
+            />
+          ))}
+        </div>
+      )}
     </section>
   )
 }

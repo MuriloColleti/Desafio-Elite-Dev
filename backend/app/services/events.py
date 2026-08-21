@@ -35,6 +35,9 @@ def _aplicar_filtros(
     busca: str | None,
     layout: EventLayout | None,
     genero: Genre | None,
+    cidade: str | None = None,
+    uf: str | None = None,
+    pais: str | None = None,
 ) -> Select:
     """Os filtros da vitrine, num lugar só.
 
@@ -54,6 +57,18 @@ def _aplicar_filtros(
     if genero is not None:
         stmt = stmt.where(Event.genre == genero)
 
+    # Cidade sem diferenciar caixa nem acento parcial: quem digita "sao paulo"
+    # na URL espera achar "São Paulo". UF e país são códigos, então comparação
+    # exata em maiúsculas basta.
+    if cidade:
+        stmt = stmt.where(Event.city.ilike(cidade.strip()))
+
+    if uf:
+        stmt = stmt.where(Event.state == uf.strip().upper())
+
+    if pais:
+        stmt = stmt.where(Event.country == pais.strip().upper())
+
     return stmt
 
 
@@ -63,6 +78,9 @@ def contar_vitrine(
     busca: str | None = None,
     layout: EventLayout | None = None,
     genero: Genre | None = None,
+    cidade: str | None = None,
+    uf: str | None = None,
+    pais: str | None = None,
 ) -> int:
     """Total que atende aos filtros, ignorando a página.
 
@@ -76,6 +94,9 @@ def contar_vitrine(
         busca=busca,
         layout=layout,
         genero=genero,
+        cidade=cidade,
+        uf=uf,
+        pais=pais,
     )
     return db.scalar(stmt) or 0
 
@@ -86,11 +107,20 @@ def listar_vitrine(
     busca: str | None = None,
     layout: EventLayout | None = None,
     genero: Genre | None = None,
+    cidade: str | None = None,
+    uf: str | None = None,
+    pais: str | None = None,
     limit: int = 24,
     offset: int = 0,
 ) -> list[Event]:
     stmt = _aplicar_filtros(
-        _base_vitrine(), busca=busca, layout=layout, genero=genero
+        _base_vitrine(),
+        busca=busca,
+        layout=layout,
+        genero=genero,
+        cidade=cidade,
+        uf=uf,
+        pais=pais,
     )
 
     # Mais próximos primeiro: quem abre a vitrine quer o que dá para assistir já.
@@ -100,6 +130,35 @@ def listar_vitrine(
     stmt = stmt.order_by(Event.starts_at.asc(), Event.id.asc()).limit(limit).offset(offset)
 
     return list(db.scalars(stmt).all())
+
+
+def localizacoes(db: Session) -> list[dict[str, object]]:
+    """Cidades com evento publicado, e quantos em cada.
+
+    Derivado dos eventos em vez de uma tabela de cidades: só faz sentido
+    oferecer no filtro o lugar onde há algo para comprar, e uma tabela separada
+    precisaria ser mantida em sincronia sem ganho nenhum.
+    """
+    stmt = (
+        select(
+            Event.city,
+            Event.state,
+            Event.country,
+            func.count().label("total"),
+        )
+        .where(
+            Event.status == EventStatus.PUBLISHED,
+            Event.starts_at > _agora(),
+            Event.city.is_not(None),
+        )
+        .group_by(Event.city, Event.state, Event.country)
+        .order_by(func.count().desc(), Event.city.asc())
+    )
+
+    return [
+        {"city": c, "state": uf, "country": pais, "total": total}
+        for c, uf, pais, total in db.execute(stmt).all()
+    ]
 
 
 def obter_publicado(db: Session, event_id: str) -> Event:
@@ -149,6 +208,9 @@ async def criar(
     layout: EventLayout,
     price_cents: int,
     genero: Genre | None = None,
+    cidade: str | None = None,
+    uf: str | None = None,
+    pais: str = "BR",
     capacity: int | None = None,
     seat_rows: int | None = None,
     seats_per_row: int | None = None,
@@ -169,6 +231,8 @@ async def criar(
     sinopse = None
     poster = None
     genero_final = genero
+    item_cidade: str | None = None
+    item_uf: str | None = None
 
     if catalog_ref:
         item = await catalog.get(catalog_ref)
@@ -180,6 +244,8 @@ async def criar(
         # O gênero informado ganha do sugerido: o organizador pode discordar da
         # classificação do catálogo.
         genero_final = genero or item.suggested_genre
+        item_cidade = item.suggested_city
+        item_uf = item.suggested_state
 
     if not snapshot_titulo:
         raise ValidationFailed("Informe um título ou um item do catálogo.")
@@ -209,6 +275,9 @@ async def criar(
         synopsis=sinopse,
         poster_url=poster,
         venue=venue,
+        city=(cidade or item_cidade),
+        state=(uf or item_uf),
+        country=pais.upper(),
         starts_at=starts_at,
         layout=layout,
         genre=genero_final,

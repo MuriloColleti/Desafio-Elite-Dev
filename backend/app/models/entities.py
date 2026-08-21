@@ -97,6 +97,13 @@ class Event(Base, TimestampMixin):
     poster_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     venue: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Localização em colunas próprias, e não extraída do texto de `venue`:
+    # separar "Circo Voador, Rio de Janeiro" por vírgula funciona nos dados
+    # que escrevemos e quebra em qualquer venue digitado diferente. Filtro
+    # que erra em silêncio é pior que filtro nenhum.
+    city: Mapped[str | None] = mapped_column(String(120), nullable=True, index=True)
+    state: Mapped[str | None] = mapped_column(String(2), nullable=True, index=True)
+    country: Mapped[str | None] = mapped_column(String(2), nullable=True, index=True)
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
 
     layout: Mapped[EventLayout] = mapped_column(_enum(EventLayout), nullable=False)

@@ -650,3 +650,101 @@ def test_paginacao_percorre_todos_sem_perder_nenhum(app_semeado):
         vistos.update(e["id"] for e in pagina["items"])
 
     assert len(vistos) == total
+
+
+# --- Localização ---
+
+
+def test_filtra_por_cidade(app_semeado):
+    clientes, _ = app_semeado
+
+    r = _itens(clientes["anon"].get("/events?city=Recife&limit=120"))
+
+    assert r, "o seed deveria ter evento em Recife"
+    assert all(e["city"] == "Recife" for e in r)
+
+
+def test_cidade_sem_diferenciar_caixa(app_semeado):
+    """Quem digita "recife" na URL espera achar "Recife"."""
+    clientes, _ = app_semeado
+
+    maiuscula = clientes["anon"].get("/events?city=Recife&limit=1").json()["total"]
+    minuscula = clientes["anon"].get("/events?city=recife&limit=1").json()["total"]
+
+    assert maiuscula == minuscula > 0
+
+
+def test_filtra_por_estado(app_semeado):
+    clientes, _ = app_semeado
+
+    r = _itens(clientes["anon"].get("/events?state=RJ&limit=120"))
+
+    assert r
+    assert all(e["state"] == "RJ" for e in r)
+
+
+def test_filtro_de_local_combina_com_os_outros(app_semeado):
+    """Cidade + layout tem de intersectar, não substituir um ao outro."""
+    clientes, _ = app_semeado
+
+    r = _itens(clientes["anon"].get("/events?city=São Paulo&layout=SEATED&limit=120"))
+
+    assert r
+    assert all(e["city"] == "São Paulo" and e["layout"] == "SEATED" for e in r)
+
+
+def test_localizacoes_lista_cidades_com_evento(app_semeado):
+    """Oferecer no seletor um lugar sem evento é armadilha."""
+    clientes, _ = app_semeado
+
+    locais = clientes["anon"].get("/locations").json()
+
+    assert locais
+    assert all(loc["total"] > 0 for loc in locais)
+    # Ordenado por oferta: a cidade com mais eventos vem primeiro.
+    assert locais == sorted(locais, key=lambda l: -l["total"])
+
+
+def test_localizacoes_dispensa_autenticacao(app_semeado):
+    clientes, _ = app_semeado
+    assert clientes["anon"].get("/locations").status_code == 200
+
+
+def test_evento_criado_do_catalogo_herda_a_cidade(app_semeado):
+    clientes, _ = app_semeado
+
+    r = clientes["organizador"].post(
+        "/organizer/events",
+        json={
+            "catalog_ref": "ticketmaster:event:demo-pulso",  # Itajaí/SC nas fixtures
+            "venue": "Warung",
+            "starts_at": _futuro(),
+            "layout": "GENERAL",
+            "price_cents": 9000,
+            "capacity": 300,
+        },
+    )
+
+    assert r.status_code == 201
+    assert r.json()["city"] == "Itajaí"
+    assert r.json()["state"] == "SC"
+
+
+def test_cidade_informada_ganha_da_sugerida(app_semeado):
+    clientes, _ = app_semeado
+
+    r = clientes["organizador"].post(
+        "/organizer/events",
+        json={
+            "catalog_ref": "ticketmaster:event:demo-pulso",
+            "city": "Florianópolis",
+            "state": "SC",
+            "venue": "Outro Lugar",
+            "starts_at": _futuro(),
+            "layout": "GENERAL",
+            "price_cents": 9000,
+            "capacity": 300,
+        },
+    )
+
+    assert r.json()["city"] == "Florianópolis"

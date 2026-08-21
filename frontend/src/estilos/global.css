@@ -200,20 +200,28 @@ textarea {
   padding: 0 24px;
 }
 
-.barra-direita {
+/* Três zonas: marca, centro, ações. `flex: 1` no centro com `justify-content:
+   center` mantém a busca no meio da janela mesmo com marca e ações de larguras
+   diferentes — alinhar por margem automática deslocaria conforme o nome do
+   usuário logado. */
+.barra-centro {
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: center;
+  gap: 10px;
   min-width: 0;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .barra {
     padding: 0 16px;
     gap: 12px;
   }
-  .barra-direita {
-    gap: 8px;
+  /* Em tela estreita o centro sai: marca e ações têm prioridade, e a vitrine
+     tem abas e filtros próprios para navegar. */
+  .barra-centro {
+    display: none;
   }
 }
 

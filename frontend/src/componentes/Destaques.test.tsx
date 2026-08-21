@@ -1,12 +1,13 @@
 /**
  * Carrossel de destaques.
  *
- * O que importa: mostra 4 de 8, avança sozinho, dá a volta no fim da lista, e
- * **para** quando o mouse está em cima — senão o cartaz escapa debaixo do
- * cursor de quem ia clicar.
+ * O formato é um cartaz central com vizinhos cortados nas laterais, então o que
+ * se testa é **qual evento está no centro** — é ele que a legenda descreve e o
+ * único clicável. Os vizinhos são cenário: ficam `aria-hidden` justamente para
+ * ninguém tabular até um link que não vê por inteiro.
  */
 
-import { render, screen, act } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -21,6 +22,9 @@ function evento(titulo: string): Evento {
     synopsis: null,
     poster_url: `https://img/${titulo}.jpg`,
     venue: 'Sala 1',
+    city: 'São Paulo',
+    state: 'SP',
+    country: 'BR',
     starts_at: new Date(Date.now() + 86_400_000).toISOString(),
     layout: 'SEATED',
     genre: 'DRAMA',
@@ -41,9 +45,9 @@ function montar(eventos = OITO) {
   )
 }
 
-/** Títulos dos cartazes visíveis, na ordem. */
-function visiveis(): string[] {
-  return screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent ?? '')
+/** Título do cartaz em destaque, lido da legenda. */
+function central(): string {
+  return screen.getByRole('heading', { level: 2 }).textContent ?? ''
 }
 
 describe('Destaques', () => {
@@ -55,35 +59,32 @@ describe('Destaques', () => {
     vi.useRealTimers()
   })
 
-  it('mostra 4 cartazes de uma lista de 8', () => {
+  it('abre com o primeiro evento no centro', () => {
     montar()
-    expect(visiveis()).toEqual(['A', 'B', 'C', 'D'])
+    expect(central()).toBe('A')
+  })
+
+  it('mostra local e data do evento central', () => {
+    montar()
+    expect(screen.getByText(/São Paulo - SP/)).toBeInTheDocument()
   })
 
   it('avança um cartaz por vez', () => {
     montar()
 
-    act(() => vi.advanceTimersByTime(4000))
+    act(() => vi.advanceTimersByTime(5000))
 
-    expect(visiveis()).toEqual(['B', 'C', 'D', 'E'])
+    expect(central()).toBe('B')
   })
 
   it('dá a volta ao chegar no fim', () => {
     montar()
 
-    // 6 avanços a partir de 0: a janela passa a começar em F e precisa
-    // continuar com G, H, A — senão o carrossel "acaba" e fica preso.
-    act(() => vi.advanceTimersByTime(4000 * 6))
+    // Oito avanços numa lista de oito: volta ao início, senão o carrossel
+    // "acaba" e fica preso no último.
+    act(() => vi.advanceTimersByTime(5000 * 8))
 
-    expect(visiveis()).toEqual(['G', 'H', 'A', 'B'])
-  })
-
-  it('volta ao início depois de uma rodada completa', () => {
-    montar()
-
-    act(() => vi.advanceTimersByTime(4000 * 8))
-
-    expect(visiveis()).toEqual(['A', 'B', 'C', 'D'])
+    expect(central()).toBe('A')
   })
 
   it('pausa quando o mouse está em cima', async () => {
@@ -91,10 +92,10 @@ describe('Destaques', () => {
     montar()
 
     await usuario.hover(screen.getByRole('region', { name: 'Em destaque' }))
-    act(() => vi.advanceTimersByTime(4000 * 3))
+    act(() => vi.advanceTimersByTime(5000 * 3))
 
     // Sem a pausa, o cartaz que a pessoa ia clicar sai debaixo do cursor.
-    expect(visiveis()).toEqual(['A', 'B', 'C', 'D'])
+    expect(central()).toBe('A')
   })
 
   it('retoma quando o mouse sai', async () => {
@@ -104,47 +105,51 @@ describe('Destaques', () => {
 
     await usuario.hover(area)
     await usuario.unhover(area)
-    act(() => vi.advanceTimersByTime(4000))
+    act(() => vi.advanceTimersByTime(5000))
 
-    expect(visiveis()).toEqual(['B', 'C', 'D', 'E'])
+    expect(central()).toBe('B')
   })
 
   it('avança e volta pelas setas', async () => {
     const usuario = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     montar()
 
-    await usuario.click(screen.getByRole('button', { name: /Próximos cartazes/ }))
-    expect(visiveis()).toEqual(['B', 'C', 'D', 'E'])
+    await usuario.click(screen.getByRole('button', { name: /Próximo cartaz/ }))
+    expect(central()).toBe('B')
 
-    await usuario.click(screen.getByRole('button', { name: /Cartazes anteriores/ }))
-    expect(visiveis()).toEqual(['A', 'B', 'C', 'D'])
+    await usuario.click(screen.getByRole('button', { name: /Cartaz anterior/ }))
+    expect(central()).toBe('A')
   })
 
   it('a seta de voltar dá a volta para o fim da lista', async () => {
     const usuario = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     montar()
 
-    await usuario.click(screen.getByRole('button', { name: /Cartazes anteriores/ }))
+    await usuario.click(screen.getByRole('button', { name: /Cartaz anterior/ }))
 
-    expect(visiveis()).toEqual(['H', 'A', 'B', 'C'])
+    expect(central()).toBe('H')
   })
 
-  it('cada cartaz leva ao seu evento', () => {
+  it('a legenda leva ao evento central', () => {
     montar()
-    const links = screen.getAllByRole('link')
 
-    expect(links[0]).toHaveAttribute('href', '/eventos/id-A')
+    expect(screen.getByRole('link', { name: 'A' })).toHaveAttribute('href', '/eventos/id-A')
   })
 
-  it('não roda nem mostra controles com 4 ou menos', () => {
-    montar(OITO.slice(0, 4))
+  it('os vizinhos não são alcançáveis por teclado', () => {
+    montar()
 
-    expect(visiveis()).toEqual(['A', 'B', 'C', 'D'])
-    // Sem cartaz sobrando não há o que rolar; setas seriam decoração inerte.
-    expect(screen.queryByRole('button', { name: /Próximos/ })).not.toBeInTheDocument()
+    // Dois links: o cartaz central e o título na legenda. Os vizinhos estão
+    // cortados, e tabular até eles levaria a um destino que não se vê.
+    expect(screen.getAllByRole('link')).toHaveLength(2)
+  })
 
-    act(() => vi.advanceTimersByTime(4000 * 3))
-    expect(visiveis()).toEqual(['A', 'B', 'C', 'D'])
+  it('não mostra controles com um evento só', () => {
+    montar([evento('Solo')])
+
+    expect(central()).toBe('Solo')
+    expect(screen.queryByRole('button', { name: /Próximo/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
   })
 
   it('não renderiza nada sem eventos', () => {
@@ -159,7 +164,7 @@ describe('Destaques', () => {
     expect(pontos).toHaveLength(8)
     expect(pontos[0]).toHaveAttribute('aria-selected', 'true')
 
-    act(() => vi.advanceTimersByTime(4000))
+    act(() => vi.advanceTimersByTime(5000))
     expect(screen.getAllByRole('tab')[1]).toHaveAttribute('aria-selected', 'true')
   })
 
@@ -167,8 +172,14 @@ describe('Destaques', () => {
     const usuario = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     montar()
 
-    await usuario.click(screen.getByRole('tab', { name: /Ir para E/ }))
+    await usuario.click(screen.getByRole('tab', { name: /Ver E/ }))
 
-    expect(visiveis()).toEqual(['E', 'F', 'G', 'H'])
+    expect(central()).toBe('E')
+  })
+
+  it('usa o venue quando não há cidade', () => {
+    montar([{ ...evento('Sem Cidade'), city: null, venue: 'Casa de Shows X' }])
+
+    expect(screen.getByText(/Casa de Shows X/)).toBeInTheDocument()
   })
 })

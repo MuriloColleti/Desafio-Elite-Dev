@@ -22,6 +22,9 @@ class EventOut(BaseModel):
     synopsis: str | None
     poster_url: str | None
     venue: str
+    city: str | None
+    state: str | None
+    country: str | None
     starts_at: datetime
     layout: EventLayout
     genre: Genre | None
@@ -38,6 +41,9 @@ class EventOut(BaseModel):
             synopsis=e.synopsis,
             poster_url=e.poster_url,
             venue=e.venue,
+            city=e.city,
+            state=e.state,
+            country=e.country,
             starts_at=e.starts_at,
             layout=e.layout,
             genre=e.genre,
@@ -46,6 +52,19 @@ class EventOut(BaseModel):
             status=e.status,
             available=available,
         )
+
+
+class LocalizacaoOut(BaseModel):
+    """Cidade com evento publicado, e quantos.
+
+    O total permite ao seletor mostrar "São Paulo (18)" — e é o que evita
+    oferecer um lugar onde não há nada para comprar.
+    """
+
+    city: str
+    state: str | None
+    country: str | None
+    total: int
 
 
 class PaginaEventos(BaseModel):
@@ -88,6 +107,8 @@ class EventCreate(BaseModel):
     starts_at: datetime
     layout: EventLayout
     genre: Genre | None = None
+    city: str | None = Field(None, max_length=120)
+    state: str | None = Field(None, max_length=2)
     price_cents: int = Field(ge=0)
 
     # SEATED: informa o mapa e a capacidade é derivada.
@@ -116,10 +137,20 @@ def listar(
     q: str | None = Query(None, max_length=120, description="Busca por título ou local"),
     layout: EventLayout | None = Query(None),
     genre: Genre | None = Query(None, description="Filtra por gênero"),
+    city: str | None = Query(None, max_length=120, description="Filtra por cidade"),
+    state: str | None = Query(None, max_length=2, description="UF, ex. SP"),
+    country: str | None = Query(None, max_length=2, description="País, ex. BR"),
     limit: int = Query(12, ge=1, le=120),
     offset: int = Query(0, ge=0),
 ) -> PaginaEventos:
-    filtros = {"busca": q, "layout": layout, "genero": genre}
+    filtros = {
+        "busca": q,
+        "layout": layout,
+        "genero": genre,
+        "cidade": city,
+        "uf": state,
+        "pais": country,
+    }
 
     achados = events.listar_vitrine(db, **filtros, limit=limit, offset=offset)
     total = events.contar_vitrine(db, **filtros)
@@ -130,6 +161,12 @@ def listar(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/locations", response_model=list[LocalizacaoOut])
+def listar_localizacoes(db: DbSession) -> list[LocalizacaoOut]:
+    """Cidades onde há evento publicado, para o seletor de localização."""
+    return [LocalizacaoOut(**loc) for loc in events.localizacoes(db)]
 
 
 @router.get("/events/{event_id}", response_model=EventDetailOut)
@@ -170,6 +207,8 @@ async def criar(
         starts_at=payload.starts_at,
         layout=payload.layout,
         genero=payload.genre,
+        cidade=payload.city,
+        uf=payload.state,
         price_cents=payload.price_cents,
         capacity=payload.capacity,
         seat_rows=payload.seat_rows,

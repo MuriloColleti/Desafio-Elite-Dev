@@ -115,6 +115,8 @@ def povoar(db: Session) -> dict[str, str]:
         item,
         *,
         venue: str,
+        cidade: str,
+        uf: str,
         dias: float,
         preco: int,
         layout: EventLayout,
@@ -130,6 +132,9 @@ def povoar(db: Session) -> dict[str, str]:
             synopsis=item.synopsis,
             poster_url=item.poster_url,
             venue=venue,
+            city=cidade,
+            state=uf,
+            country="BR",
             starts_at=_agora() + timedelta(days=dias),
             layout=layout,
             genre=item.suggested_genre,
@@ -144,17 +149,21 @@ def povoar(db: Session) -> dict[str, str]:
     # Programação gerada, e não uma lista fixa: com ~50 eventos escrever cada
     # sala e horário à mão seria repetição sem informação. As variações vêm de
     # ciclos sobre listas curtas, o que mantém a diversidade sem tabela enorme.
+    # (sala, cidade, UF) — salas espalhadas por várias capitais, para o filtro
+    # de localização ter o que filtrar de verdade.
     SALAS = (
-        "Cine Belas Artes — Sala 1",
-        "Cine Belas Artes — Sala 2",
-        "Espaço Itaú — Sala 3",
-        "Cinemateca — Sala Grande",
-        "Cine Odeon — Sala 1",
-        "Reserva Cultural — Sala 2",
-        "Cine Joia — Sala Panorâmica",
-        "Petra Belas Artes — Sala 4",
-        "Cinesystem — Sala VIP",
-        "Kinoplex — Sala 7",
+        ("Cine Belas Artes — Sala 1", "São Paulo", "SP"),
+        ("Cine Odeon — Sala 1", "Rio de Janeiro", "RJ"),
+        ("Espaço Itaú — Sala 3", "São Paulo", "SP"),
+        ("Cinemateca — Sala Grande", "Belo Horizonte", "MG"),
+        ("Cine Passeio — Sala 2", "Curitiba", "PR"),
+        ("Reserva Cultural — Sala 2", "Niterói", "RJ"),
+        ("Cine Joia — Sala Panorâmica", "Recife", "PE"),
+        ("Petra Belas Artes — Sala 4", "São Paulo", "SP"),
+        ("Cinesystem — Sala VIP", "Porto Alegre", "RS"),
+        ("Kinoplex — Sala 7", "Salvador", "BA"),
+        ("Cine Brasília — Sala 1", "Brasília", "DF"),
+        ("UCI Orient — Sala 5", "Fortaleza", "CE"),
     )
     # (fileiras, assentos por fileira) — salas de tamanhos diferentes mostram
     # que o mapa não é fixo.
@@ -164,10 +173,13 @@ def povoar(db: Session) -> dict[str, str]:
     eventos_cinema = []
     for n, item in enumerate(filmes):
         fileiras, por_fileira = MAPAS[n % len(MAPAS)]
+        sala, cidade, uf = SALAS[n % len(SALAS)]
         eventos_cinema.append(
             evento_de(
                 item,
-                venue=SALAS[n % len(SALAS)],
+                venue=sala,
+                cidade=cidade,
+                uf=uf,
                 # Espalha as sessões pelas próximas ~7 semanas, em horários de
                 # cinema (tarde e noite), sem duas no mesmo minuto.
                 dias=2 + n * 0.9 + (n % 3) * 0.25,
@@ -187,6 +199,8 @@ def povoar(db: Session) -> dict[str, str]:
             evento_de(
                 item,
                 venue=item.suggested_venue or "Local a definir",
+                cidade=item.suggested_city or "São Paulo",
+                uf=item.suggested_state or "SP",
                 dias=3 + n * 3.1,
                 preco=PRECOS_SHOW[n % len(PRECOS_SHOW)],
                 layout=EventLayout.GENERAL,
@@ -199,6 +213,8 @@ def povoar(db: Session) -> dict[str, str]:
     rascunho = evento_de(
         filmes[-1],
         venue="Cine Belas Artes — Sala 5",
+        cidade="São Paulo",
+        uf="SP",
         dias=30,
         preco=3400,
         layout=EventLayout.SEATED,

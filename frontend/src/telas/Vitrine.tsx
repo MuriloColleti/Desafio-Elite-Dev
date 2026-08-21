@@ -6,9 +6,10 @@
  * lista só obrigaria a pessoa a filtrar mentalmente o que não quer.
  *
  * **Todo o estado de navegação vive na URL** — aba no caminho (`/`, `/shows`),
- * busca em `?q=`, gênero em `?g=`, página em `?p=`. Assim qualquer combinação é
- * compartilhável por link e o botão voltar desfaz um passo por vez, em vez de
- * jogar a pessoa fora da vitrine.
+ * busca em `?q=`, gênero em `?g=`, cidade em `?cidade=`, estado em `?uf=` e
+ * página em `?p=`. Assim qualquer combinação é compartilhável por link e o
+ * botão voltar desfaz um passo por vez, em vez de jogar a pessoa fora da
+ * vitrine.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -53,6 +54,9 @@ export function Vitrine() {
   const busca = params.get('q') ?? ''
   const genero = (params.get('g') as Genero | null) ?? null
   const pagina = Math.max(1, Number(params.get('p') ?? 1) || 1)
+  // Localização vem do seletor no cabeçalho, também pela URL.
+  const cidade = params.get('cidade')
+  const uf = params.get('uf')
 
   // Página atual, já filtrada pelo servidor.
   const [resultado, setResultado] = useState<PaginaEventos | null>(null)
@@ -67,12 +71,17 @@ export function Vitrine() {
   useEffect(() => {
     const qs = new URLSearchParams({ limit: '120' })
     if (busca.trim()) qs.set('q', busca.trim())
+    // A localização entra aqui: os contadores das abas e as pílulas de gênero
+    // devem refletir o lugar escolhido, senão ofereceriam "Terror" numa cidade
+    // que não tem nenhum.
+    if (cidade) qs.set('city', cidade)
+    if (uf) qs.set('state', uf)
 
     api
       .get<PaginaEventos>(`/events?${qs}`)
       .then((r) => setPanorama(r.items))
       .catch(() => setPanorama([]))
-  }, [busca])
+  }, [busca, cidade, uf])
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -83,6 +92,8 @@ export function Vitrine() {
       })
       if (busca.trim()) qs.set('q', busca.trim())
       if (genero) qs.set('genre', genero)
+      if (cidade) qs.set('city', cidade)
+      if (uf) qs.set('state', uf)
 
       setCarregando(true)
       api
@@ -102,7 +113,7 @@ export function Vitrine() {
     }, 250)
 
     return () => clearTimeout(t)
-  }, [busca, genero, layout, pagina])
+  }, [busca, cidade, genero, layout, pagina, uf])
 
   const totalPorAba = useMemo(
     () => ({
@@ -128,6 +139,8 @@ export function Vitrine() {
     (destino: Aba, g: Genero | null, p: number): string => {
       const qs = new URLSearchParams()
       if (busca.trim()) qs.set('q', busca.trim())
+      if (cidade) qs.set('cidade', cidade)
+      if (uf) qs.set('uf', uf)
       // Gênero de filme não existe em shows: ao trocar de aba ele cai, em vez
       // de filtrar por algo impossível e mostrar lista vazia.
       if (g && generosDe(destino === 'cinema' ? 'SEATED' : 'GENERAL').includes(g)) {
@@ -139,7 +152,7 @@ export function Vitrine() {
       const base = destino === 'cinema' ? '/' : '/shows'
       return qs.size > 0 ? `${base}?${qs}` : base
     },
-    [busca],
+    [busca, cidade, uf],
   )
 
   function irPara(p: number) {
@@ -153,7 +166,7 @@ export function Vitrine() {
   const total = resultado?.total ?? 0
   const totalPaginas = Math.max(1, Math.ceil(total / POR_PAGINA))
   const config = ABAS[aba]
-  const filtrando = busca.trim() !== '' || genero !== null
+  const filtrando = busca.trim() !== '' || genero !== null || cidade !== null || uf !== null
 
   // Destaques e recomendados só na navegação livre: quem procura algo
   // específico não quer uma parede de cartazes na frente do resultado.
@@ -203,15 +216,38 @@ export function Vitrine() {
           })}
         </div>
 
-        {busca.trim() && (
-          <button
-            type="button"
-            className="filtro-ativo"
-            onClick={() => navegar(url(aba, genero, 1))}
-          >
-            “{busca.trim()}” <span aria-hidden="true">✕</span>
-          </button>
-        )}
+        <div className="linha-flex quebra" style={{ gap: 8 }}>
+          {busca.trim() && (
+            <button
+              type="button"
+              className="filtro-ativo"
+              onClick={() => {
+                const qs = new URLSearchParams()
+                if (cidade) qs.set('cidade', cidade)
+                if (uf) qs.set('uf', uf)
+                const base = aba === 'shows' ? '/shows' : '/'
+                navegar(qs.size > 0 ? `${base}?${qs}` : base)
+              }}
+            >
+              “{busca.trim()}” <span aria-hidden="true">✕</span>
+            </button>
+          )}
+
+          {(cidade || uf) && (
+            <button
+              type="button"
+              className="filtro-ativo"
+              onClick={() => {
+                const qs = new URLSearchParams()
+                if (busca.trim()) qs.set('q', busca.trim())
+                const base = aba === 'shows' ? '/shows' : '/'
+                navegar(qs.size > 0 ? `${base}?${qs}` : base)
+              }}
+            >
+              📍 {cidade ?? uf} <span aria-hidden="true">✕</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Gêneros da aba aberta. Só os que têm evento aparecem: oferecer um

@@ -41,6 +41,8 @@ class CatalogItem:
     # Filme não traz data de sessão; show do Ticketmaster traz.
     suggested_starts_at: datetime | None = None
     suggested_venue: str | None = None
+    suggested_city: str | None = None
+    suggested_state: str | None = None
     suggested_genre: Genre | None = None
 
     @property
