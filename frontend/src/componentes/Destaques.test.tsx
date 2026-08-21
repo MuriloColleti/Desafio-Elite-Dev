@@ -64,9 +64,11 @@ describe('Destaques', () => {
     expect(central()).toBe('A')
   })
 
-  it('mostra local e data do evento central', () => {
+  it('mostra cinema, cidade e data do evento central', () => {
     montar()
-    expect(screen.getByText(/São Paulo - SP/)).toBeInTheDocument()
+
+    // Cinema e cidade juntos: "Sala 1" sozinho não diz em qual cidade fica.
+    expect(screen.getByText(/Sala 1 · São Paulo, SP/)).toBeInTheDocument()
   })
 
   it('avança um cartaz por vez', () => {
@@ -177,9 +179,12 @@ describe('Destaques', () => {
     expect(central()).toBe('E')
   })
 
-  it('usa o venue quando não há cidade', () => {
-    montar([{ ...evento('Sem Cidade'), city: null, venue: 'Casa de Shows X' }])
+  it('mostra só o venue quando não há cidade', () => {
+    // Cidade é opcional no modelo; sem ela não deve sobrar separador solto.
+    montar([{ ...evento('Sem Cidade'), city: null, state: null, venue: 'Cine X' }])
 
-    expect(screen.getByText(/Casa de Shows X/)).toBeInTheDocument()
+    const meta = screen.getByText(/Cine X/)
+    expect(meta).toBeInTheDocument()
+    expect(meta.textContent).not.toContain('·')
   })
 })

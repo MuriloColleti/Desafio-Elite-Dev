@@ -9,7 +9,7 @@
 
 import { Link } from 'react-router-dom'
 
-import { moeda } from '../lib/formato'
+import { cidadeUf, moeda } from '../lib/formato'
 import { rotuloGenero } from '../lib/generos'
 import type { Evento } from '../lib/tipos'
 
@@ -64,7 +64,9 @@ export function CardEvento({ evento }: { evento: Evento }) {
               {' · '}
             </>
           )}
-          {evento.venue}
+          {/* A cidade ganha do nome do cinema quando o espaço é curto: numa
+              grade, saber que é em Recife decide mais que saber a sala. */}
+          {cidadeUf(evento.city, evento.state) ?? evento.venue}
         </p>
         <div className="card-rodape">
           <span className="preco">{moeda(evento.price_cents)}</span>

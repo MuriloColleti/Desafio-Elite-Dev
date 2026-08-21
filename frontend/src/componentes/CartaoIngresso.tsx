@@ -3,7 +3,7 @@
 import { useState } from 'react'
 
 import { urlApi } from '../lib/api'
-import { dataHoraLonga } from '../lib/formato'
+import { cidadeUf, dataHoraLonga } from '../lib/formato'
 import type { Ingresso } from '../lib/tipos'
 
 export function CartaoIngresso({ ingresso }: { ingresso: Ingresso }) {
@@ -32,6 +32,12 @@ export function CartaoIngresso({ ingresso }: { ingresso: Ingresso }) {
               {dataHoraLonga(ingresso.event_starts_at)}
               <br />
               {ingresso.event_venue}
+              {cidadeUf(ingresso.event_city, ingresso.event_state) && (
+                <>
+                  {' · '}
+                  {cidadeUf(ingresso.event_city, ingresso.event_state)}
+                </>
+              )}
             </p>
           </div>
 

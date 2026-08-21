@@ -22,6 +22,10 @@ class TicketOut(BaseModel):
     event_id: str
     event_title: str
     event_venue: str
+    # Cidade no ingresso não é redundância: é para onde a pessoa vai se
+    # deslocar, e "Cine Odeon" sozinho não diz em qual cidade fica.
+    event_city: str | None
+    event_state: str | None
     event_starts_at: datetime
     event_poster_url: str | None
     event_layout: EventLayout
@@ -41,6 +45,8 @@ class TicketOut(BaseModel):
             event_id=evento.id,
             event_title=evento.title,
             event_venue=evento.venue,
+            event_city=evento.city,
+            event_state=evento.state,
             event_starts_at=evento.starts_at,
             event_poster_url=evento.poster_url,
             event_layout=evento.layout,
@@ -60,6 +66,8 @@ class PublicTicketOut(BaseModel):
     status: TicketStatus
     event_title: str
     event_venue: str
+    event_city: str | None
+    event_state: str | None
     event_starts_at: datetime
     event_poster_url: str | None
     seat_label: str | None
@@ -73,6 +81,8 @@ class PublicTicketOut(BaseModel):
             status=t.status,
             event_title=evento.title,
             event_venue=evento.venue,
+            event_city=evento.city,
+            event_state=evento.state,
             event_starts_at=evento.starts_at,
             event_poster_url=evento.poster_url,
             seat_label=t.reservation.seat_label,

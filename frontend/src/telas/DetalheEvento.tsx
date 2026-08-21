@@ -12,7 +12,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useSessao } from '../auth/Sessao'
 import { MapaAssentos } from '../componentes/MapaAssentos'
 import { ApiError, api } from '../lib/api'
-import { dataHoraLonga, mensagemDeErro, moeda } from '../lib/formato'
+import { cidadeUf, dataHoraLonga, mensagemDeErro, moeda } from '../lib/formato'
 import { rotuloGenero } from '../lib/generos'
 import type { EventoDetalhe, GrupoReservas } from '../lib/tipos'
 
@@ -153,7 +153,19 @@ export function DetalheEvento() {
               <span className="dado-pilula-icone" aria-hidden="true">📍</span>
               <div>
                 <dt>Onde</dt>
-                <dd>{evento.venue}</dd>
+                {/* Cinema e cidade em linhas separadas: "Cine Odeon" sozinho não
+                    diz onde é, e concatenar tudo numa linha só fica longo. */}
+                <dd>
+                  {evento.venue}
+                  {cidadeUf(evento.city, evento.state) && (
+                    <>
+                      <br />
+                      <span className="texto-pp texto-3">
+                        {cidadeUf(evento.city, evento.state)}
+                      </span>
+                    </>
+                  )}
+                </dd>
               </div>
             </div>
             <div className="dado-pilula">

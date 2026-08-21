@@ -40,6 +40,30 @@ export function restante(iso: string): { minutos: number; segundos: number } | n
   return { minutos: Math.floor(total / 60), segundos: total % 60 }
 }
 
+/** Local completo: "Cine Odeon — Sala 1 · Rio de Janeiro, RJ".
+ *
+ * Uma função só para as seis telas que mostram local, senão cada uma monta o
+ * texto do seu jeito e algumas esquecem a cidade — foi o que aconteceu: a tela
+ * de detalhe dizia só o nome do cinema, e "Cine Odeon" não diz onde é.
+ *
+ * `city` é opcional no modelo (evento com título livre pode não ter), então a
+ * função degrada para o venue sozinho em vez de deixar vírgula solta.
+ */
+export function localCompleto(
+  venue: string,
+  city?: string | null,
+  state?: string | null,
+): string {
+  const cidade = city ? (state ? `${city}, ${state}` : city) : null
+  return cidade ? `${venue} · ${cidade}` : venue
+}
+
+/** Só a cidade: "Rio de Janeiro, RJ". Para onde o venue já aparece separado. */
+export function cidadeUf(city?: string | null, state?: string | null): string | null {
+  if (!city) return null
+  return state ? `${city}, ${state}` : city
+}
+
 /** (0,0) → "A1". Mesma regra do back-end (`rotulo_assento`). */
 export function rotuloAssento(fileira: number, numero: number): string {
   return `${String.fromCharCode(65 + fileira)}${numero + 1}`

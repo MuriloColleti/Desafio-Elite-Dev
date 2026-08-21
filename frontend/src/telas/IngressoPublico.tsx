@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { ApiError, api } from '../lib/api'
-import { dataHoraLonga } from '../lib/formato'
+import { cidadeUf, dataHoraLonga } from '../lib/formato'
 import type { IngressoPublico as Publico } from '../lib/tipos'
 
 export function IngressoPublico() {
@@ -60,6 +60,12 @@ export function IngressoPublico() {
             {dataHoraLonga(ingresso.event_starts_at)}
             <br />
             {ingresso.event_venue}
+            {cidadeUf(ingresso.event_city, ingresso.event_state) && (
+              <>
+                {' · '}
+                {cidadeUf(ingresso.event_city, ingresso.event_state)}
+              </>
+            )}
           </p>
 
           <hr className="divisor" style={{ margin: '16px 0' }} />

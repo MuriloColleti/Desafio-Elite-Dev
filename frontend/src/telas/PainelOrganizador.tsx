@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { ApiError, api } from '../lib/api'
-import { dataHora, mensagemDeErro, moeda } from '../lib/formato'
+import { dataHora, localCompleto, mensagemDeErro, moeda } from '../lib/formato'
 import type { Evento } from '../lib/tipos'
 
 const ETIQUETA = {
@@ -111,7 +111,7 @@ export function PainelOrganizador() {
                   <td>
                     <strong>{e.title}</strong>
                     <br />
-                    <span className="texto-pp texto-3">{e.venue}</span>
+                    <span className="texto-pp texto-3">{localCompleto(e.venue, e.city, e.state)}</span>
                   </td>
                   <td className="texto-p">{dataHora(e.starts_at)}</td>
                   <td className="texto-p">{e.layout === 'SEATED' ? 'Assento' : 'Pista'}</td>

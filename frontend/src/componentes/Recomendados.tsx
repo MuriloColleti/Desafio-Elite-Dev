@@ -14,7 +14,7 @@
 
 import { Link } from 'react-router-dom'
 
-import { moeda } from '../lib/formato'
+import { cidadeUf, moeda } from '../lib/formato'
 import type { Evento } from '../lib/tipos'
 
 const QUANTOS = 5
@@ -95,7 +95,7 @@ export function Recomendados({ eventos }: { eventos: Evento[] }) {
                 <div className="recomendado-info">
                   <h3>{e.title}</h3>
                   <p className="recomendado-meta">
-                    {dataCurta(e.starts_at)} · {e.venue}
+                    {dataCurta(e.starts_at)} · {cidadeUf(e.city, e.state) ?? e.venue}
                   </p>
                 </div>
 

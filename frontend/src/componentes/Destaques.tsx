@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import { moeda } from '../lib/formato'
+import { localCompleto, moeda } from '../lib/formato'
 import type { Evento } from '../lib/tipos'
 
 const INTERVALO_MS = 5000
@@ -29,9 +29,7 @@ function dataLonga(iso: string): string {
   return `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).replace('.', '')} · ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
 }
 
-function local(e: Evento): string {
-  return e.city ? `${e.city}${e.state ? ` - ${e.state}` : ''}` : e.venue
-}
+
 
 export function Destaques({ eventos }: { eventos: Evento[] }) {
   const [centro, setCentro] = useState(0)
@@ -143,7 +141,7 @@ export function Destaques({ eventos }: { eventos: Evento[] }) {
           <Link to={`/eventos/${emDestaque.id}`}>{emDestaque.title}</Link>
         </h2>
         <p className="palco-meta">
-          <span>📍 {local(emDestaque)}</span>
+          <span>📍 {localCompleto(emDestaque.venue, emDestaque.city, emDestaque.state)}</span>
           <span>🗓 {dataLonga(emDestaque.starts_at)}</span>
         </p>
       </div>

@@ -108,6 +108,8 @@ export type Ingresso = {
   event_id: string
   event_title: string
   event_venue: string
+  event_city: string | null
+  event_state: string | null
   event_starts_at: string
   event_poster_url: string | null
   event_layout: Layout
@@ -121,6 +123,8 @@ export type IngressoPublico = {
   status: StatusIngresso
   event_title: string
   event_venue: string
+  event_city: string | null
+  event_state: string | null
   event_starts_at: string
   event_poster_url: string | null
   seat_label: string | null

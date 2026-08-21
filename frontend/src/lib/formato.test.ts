@@ -2,7 +2,14 @@
 
 import { describe, expect, it } from 'vitest'
 
-import { mensagemDeErro, moeda, restante, rotuloAssento } from './formato'
+import {
+  cidadeUf,
+  localCompleto,
+  mensagemDeErro,
+  moeda,
+  restante,
+  rotuloAssento,
+} from './formato'
 
 describe('moeda', () => {
   it('converte centavos inteiros em reais', () => {
@@ -54,5 +61,39 @@ describe('mensagemDeErro', () => {
     // Nunca mostrar o código cru: se aparecer algo novo, o texto da API já é
     // em português e serve melhor que "UNKNOWN_ERROR".
     expect(mensagemDeErro('CODIGO_NOVO', 'mensagem do servidor')).toBe('mensagem do servidor')
+  })
+})
+
+describe('localCompleto', () => {
+  it('junta cinema, cidade e UF', () => {
+    expect(localCompleto('Cine Odeon — Sala 1', 'Rio de Janeiro', 'RJ')).toBe(
+      'Cine Odeon — Sala 1 · Rio de Janeiro, RJ',
+    )
+  })
+
+  it('omite a UF quando não há', () => {
+    expect(localCompleto('Cine X', 'Manaus', null)).toBe('Cine X · Manaus')
+  })
+
+  it('devolve só o venue sem cidade', () => {
+    // Cidade é opcional no modelo; sem ela não pode sobrar separador solto.
+    expect(localCompleto('Cine X', null, null)).toBe('Cine X')
+    expect(localCompleto('Cine X', null, 'SP')).toBe('Cine X')
+  })
+})
+
+describe('cidadeUf', () => {
+  it('junta cidade e UF', () => {
+    expect(cidadeUf('Recife', 'PE')).toBe('Recife, PE')
+  })
+
+  it('devolve null sem cidade', () => {
+    // Null e não string vazia: o chamador usa `??` para cair no venue.
+    expect(cidadeUf(null, 'PE')).toBeNull()
+    expect(cidadeUf(undefined, undefined)).toBeNull()
+  })
+
+  it('aceita cidade sem UF', () => {
+    expect(cidadeUf('Manaus', null)).toBe('Manaus')
   })
 })

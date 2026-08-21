@@ -522,3 +522,25 @@ def test_nao_paga_grupo_de_outro_cliente(app_semeado):
     r = _pagar(clientes["bruno"], meu["id"], alheio["id"])
 
     assert r.status_code == 404
+
+
+def test_ingresso_traz_a_cidade(app_semeado):
+    """"Cine Odeon" sozinho não diz em qual cidade fica.
+
+    O ingresso é justamente o que a pessoa consulta para se deslocar até lá.
+    """
+    clientes, _ = app_semeado
+    ingresso = clientes["ana"].get("/tickets/me").json()[0]
+
+    assert ingresso["event_venue"]
+    assert ingresso["event_city"]
+    assert ingresso["event_state"]
+
+
+def test_ingresso_publico_tambem_traz_a_cidade(app_semeado):
+    clientes, refs = app_semeado
+
+    corpo = clientes["anon"].get(f"/public/tickets/{refs['share_token_ana']}").json()
+
+    assert corpo["event_city"]
+    assert corpo["event_state"]

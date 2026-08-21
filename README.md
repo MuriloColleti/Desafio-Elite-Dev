@@ -10,8 +10,8 @@ simulada e recebe um ingresso com QR, e a portaria valida esse ingresso na entra
 >
 > **Status:** o fluxo do enunciado funciona **ponta a ponta** — vitrine, criação de evento a partir
 > do catálogo, reserva com mapa de assentos ou pista, pagamento simulado com recusa, ingresso com
-> QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 222 testes;
-> front-end com 66. O que falta está em [Status de implementação](#status-de-implementação) —
+> QR, link de compartilhamento e a portaria com leitura por câmera. Back-end com 224 testes;
+> front-end com 72. O que falta está em [Status de implementação](#status-de-implementação) —
 > principalmente cobertura de testes do front e o deploy.
 
 ---
@@ -814,8 +814,8 @@ de que já esteja pronto.
 | Front-end: vitrine, reserva, checkout, ingressos | ✅ pronto      |
 | Front-end: portaria e painel do organizador    | ✅ pronto       |
 | Leitura do QR pela câmera                      | ✅ pronto       |
-| Testes do back-end (222)                       | ✅ pronto       |
-| Testes do front-end (66)                       | 🟡 parcial      |
+| Testes do back-end (224)                       | ✅ pronto       |
+| Testes do front-end (72)                       | 🟡 parcial      |
 | Docker Compose (um comando)                    | ✅ pronto       |
 | Configuração de deploy (Render + Vercel)       | ✅ pronto       |
 | Deploy público publicado                       | 🔜 pendente     |
